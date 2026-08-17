@@ -1,0 +1,175 @@
+body { 
+    max-width: 800px; 
+    margin: 20px auto; 
+    padding: 0 20px; 
+    font-family: system-ui, sans-serif; 
+}
+
+#login-wrapper {
+    display: table;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    z-index: 10000;
+    background-color: var(--background, #ffffff);
+}
+
+
+#login-wrapper:has(#login-section[style*="display: none"]) {
+    display: none !important;
+}
+
+#login-section {
+    display: table-cell;
+    vertical-align: middle;
+    text-align: center;
+    margin: 0 auto;
+    max-width: 400px;
+}
+
+#login-section input, #login-section button {
+    display: block;
+    margin: 12px auto;
+    width: 100%;
+    max-width: 320px;
+}
+
+#error-msg {
+    color: #dc3545; 
+    font-size: 0.9em; 
+    margin-top: 10px; 
+    display: none;
+    font-weight: 500;
+}
+
+#admin-panel { 
+    display: none; 
+}
+
+#preview-imagenes {
+    display: flex; 
+    gap: 10px; 
+    margin-top: 10px; 
+    flex-wrap: wrap;
+}
+
+.propiedad-card { 
+    border: 1px solid #f8f8f8; 
+    padding: 15px; 
+    margin-bottom: 12px; 
+    border-radius: 8px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    background: #fff; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+}
+
+.acciones { 
+    display: flex; 
+    gap: 10px; 
+}
+
+.custom-file-upload {
+    margin-bottom: 15px;
+}
+
+.btn-subir {
+    background-color: #f0f0f0;
+    color: #333;
+    border: 1px solid #ccc;
+    padding: 10px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.95em;
+    transition: background 0.2s ease, border-color 0.2s ease;
+    width: auto;
+}
+
+.btn-subir:hover {
+    background-color: #e4e4e4;
+    border-color: #999;
+}
+
+.btn-delete { 
+    background: #ff0019; 
+    color: rgb(230, 230, 230); 
+    border: none; 
+    padding: 6px 12px; 
+    border-radius: 4px; 
+    cursor: pointer; 
+}
+
+.btn-edit { 
+    background: #007bff; 
+    color: rgb(248, 248, 248); 
+    border: none; 
+    padding: 6px 12px; 
+    border-radius: 4px; 
+    cursor: pointer; 
+}
+
+#btn-guardar {
+    background: #28a745; 
+    color:white; 
+    width: 100%; 
+    font-size: 1.1em; 
+    cursor: pointer;
+}
+
+#btn-cancelar {
+    display: none; 
+    background: #fd0404 !important; 
+    color: white !important;         
+    width: 100%; 
+    margin-top: 5px;
+    border: none;
+}
+.preview-card {
+    position: relative;
+    display: inline-block;
+    margin: 8px;
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    transition: transform 0.2s ease;
+}
+.preview-card:hover {
+    transform: scale(1.03);
+}
+.preview-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: filter 0.2s ease;
+}
+.preview-card:hover .preview-img {
+    filter: brightness(0.75);
+}
+.btn-delete-preview {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(220, 53, 69, 0.85);
+    color: white;
+    border: none;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+.preview-card:hover .btn-delete-preview {
+    opacity: 1;
+}

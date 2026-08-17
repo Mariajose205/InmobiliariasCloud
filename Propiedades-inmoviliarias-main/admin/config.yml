@@ -1,0 +1,25 @@
+backend:
+  name: git-gateway
+  branch: main
+
+media_folder: "images"
+public_folder: "images"
+
+collections:
+  - name: "configuracion"
+    label: "Propiedades"
+    delete: false
+    editor:
+      preview: false
+    files:
+      - name: "lista_propiedades"
+        label: "Lista de Propiedades"
+        file: "data/propiedades.json"
+        format: "json"
+        fields:
+          - { label: "Título", name: "titulo", widget: "string" }
+          - { label: "Precio", name: "precio", widget: "string" }
+          - { label: "Ubicación", name: "ubicacion", widget: "string" }
+          - { label: "Piezas", name: "piezas", widget: "number" }
+          - { label: "Baños", name: "banos", widget: "number" }
+          - { label: "Imagen", name: "imagen", widget: "image" }

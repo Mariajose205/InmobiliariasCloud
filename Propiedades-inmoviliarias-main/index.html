@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Catálogo de propiedades en venta - Casas y departamentos">
+    <title>Corredora de Propiedades</title>
+    
+    <link class="rounded-circle" rel="icon" type="image/jpeg" href="imagenes/Logo_Principal.jpeg">
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <link class="preconnect" href="https://fonts.googleapis.com">
+    <link class="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+   <nav class="navbar navbar-expand-lg navbar-dark">
+    <div class="container">
+        <a class="navbar-brand border border-white text-white px-3 py-2 rounded d-inline-flex align-items-center" href="#" style="font-weight: 600;">
+            <i class="bi bi-house-door-fill me-2 text-white"></i>
+            IR Gestion Inmobiliaria Spa
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">Inicio</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#propiedades">Propiedades</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#contacto">Contacto</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero-section">
+        <div class="container">
+            <h1>Encuentra tu hogar ideal</h1>
+            <p>Casas, departamentos y terrenos con las mejores conditions</p>
+        </div>
+    </section>
+
+    <section id="propiedades" class="container mb-5">
+        <div class="row">
+            <div class="col-12">
+                <h2 class="text-center mb-2">Propiedades Disponibles</h2>
+                <p class="text-center text-muted mb-4">Filtra nuestro catálogo según lo que estés buscando</p>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-12 d-flex justify-content-center gap-2 flex-wrap">
+                <button class="btn btn-outline-dark active filter-btn" onclick="filtrarCategoria('Todos')">✨ Todos</button>
+                <button class="btn btn-outline-dark filter-btn" onclick="filtrarCategoria('Casa')">🏡 Casas</button>
+                <button class="btn btn-outline-dark filter-btn" onclick="filtrarCategoria('Departamento')">🏢 Departamentos</button>
+                <button class="btn btn-outline-dark filter-btn" onclick="filtrarCategoria('Terreno')">🌱 Terrenos</button>
+            </div>
+        </div>
+
+        <div id="contenedor-propiedades" class="row g-4">
+            </div>
+    </section>
+
+    <footer id="contacto">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-12 col-md-6 text-md-start text-center mb-4 mb-md-0">
+                    <h4>Contáctanos</h4>
+                    <p class="mb-3">
+                        <i class="bi bi-telephone-fill me-2 text-info"></i>
+                        +56 9 8551 9073
+                    </p>
+                    <p class="mb-3">
+                        <i class="bi bi-telephone-fill me-2 text-info"></i>
+                        +56 9 8369 4851
+                    </p>
+                    <p class="mb-3">
+                        <i class="bi bi-envelope-fill me-2 text-info"></i>
+                        contactoirpropiedades@gmail.com
+                    </p>
+                    <p class="mb-0">
+                        <a href="https://www.instagram.com/i_r_gestion_inmobiliaria_spa?utm_source=qr&igsh=MTY5bW90eXdjNnJreQ==" 
+                           target="_blank" 
+                           style="color: white; text-decoration: none; transition: opacity 0.3s;"
+                           onmouseover="this.style.opacity='0.8'"
+                           onmouseout="this.style.opacity='1'">
+                            <i class="bi bi-instagram me-2" style="color: #e1306c;"></i>
+                            @i_r_gestion_inmobiliaria_spa
+                        </a>
+                    </p>
+                </div>
+
+                <div class="col-12 col-md-6 text-center">
+                    <div class="qr-wrapper">
+                        <div>
+                            <div class="qr-container">
+                                <img src="imagenes/qr_instagram.jpeg" alt="QR Instagram" class="qr-img">
+                            </div>
+                            <div class="qr-box-text">Escanéanos en Instagram</div>
+                        </div>
+                        
+                        <div>
+                            <div class="qr-container">
+                                <img src="imagenes/qr_wsp.jpeg" alt="QR WhatsApp" class="qr-img">
+                            </div>
+                            <div class="qr-box-text">Escríbenos por WhatsApp</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-4" style="border-color: rgba(255,255,255,0.15);">
+            <div class="text-center">
+                <p class="mb-0" style="font-size: 0.85rem; color: #a0aec0;">&copy; 2026 IR Gestion Inmobiliaria Spa. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </footer>
+
+    <div class="modal fade" id="visorImagenModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="background: rgba(0,0,0,0.9); border: none; border-radius: 12px;">
+          <div class="modal-header" style="border: none; padding: 10px 20px 0 0;">
+            <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body text-center p-4">
+            <img id="imagenGrandeVisor" src="" alt="Vista ampliada" style="max-width: 100%; max-height: 80vh; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <a href="https://wa.me/56985519073?text=Hola,%20vengo%20de%20la%20p%C3%A1gina%20web%20y%20me%20gustar%C3%ADa%20hacer%20una%20consulta." 
+       target="_blank" 
+       class="wsp-flotante">
+        <i class="bi bi-whatsapp"></i>
+    </a>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
