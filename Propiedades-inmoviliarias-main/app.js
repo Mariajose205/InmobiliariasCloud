@@ -210,9 +210,56 @@ function filtrarCategoria(catSeleccionada) {
     renderizarPropiedades();
 }
 
+// Funciones de autenticación
+const SESSION_KEY = 'inmobiliaria_session';
+
+function getSession() {
+    const session = localStorage.getItem(SESSION_KEY);
+    return session ? JSON.parse(session) : null;
+}
+
+function updateAuthUI() {
+    const session = getSession();
+    const authSection = document.getElementById('authSection');
+    
+    if (authSection) {
+        if (session && session.loggedIn) {
+            authSection.innerHTML = `
+                <div class="dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-check-fill me-1"></i>${session.name}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#" onclick="logout()">
+                            <i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
+                        </a></li>
+                    </ul>
+                </div>
+            `;
+        } else {
+            authSection.innerHTML = `
+                <a class="nav-link" href="Login/login.html">
+                    <i class="bi bi-person-circle me-1"></i>Iniciar Sesión
+                </a>
+            `;
+        }
+    }
+}
+
+function logout() {
+    localStorage.removeItem(SESSION_KEY);
+    window.location.href = 'Login/login.html';
+}
+
+// Hacer logout disponible globalmente
+window.logout = logout;
+
 document.addEventListener('DOMContentLoaded', () => {
     cargarPropiedades();
     window.filtrarCategoria = filtrarCategoria;
     window.cambiarImagen = cambiarImagen; 
-    window.ampliarImagen = ampliarImagen; 
+    window.ampliarImagen = ampliarImagen;
+    
+    // Verificar y actualizar UI de autenticación
+    updateAuthUI();
 });

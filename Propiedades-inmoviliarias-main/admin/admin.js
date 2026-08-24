@@ -16,7 +16,7 @@ async function verificarAcceso() {
   const inputClave = document.getElementById('access-key').value;
   const errorMsg = document.getElementById('error-msg');
   
-  const claveCorrecta = "Propiedades2022"; 
+  const claveCorrecta = "Duoc2026"; 
   
   if (inputClave === claveCorrecta) {
     if (errorMsg) errorMsg.style.display = 'none';
