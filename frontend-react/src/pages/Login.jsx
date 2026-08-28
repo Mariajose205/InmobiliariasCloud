@@ -188,6 +188,15 @@ function Login() {
                     </Button>
                   </Form>
                   <div className="text-center mt-3">
+                    <Button variant="outline-secondary" onClick={() => navigate('/')} className="w-100" style={{
+                      borderRadius: '10px',
+                      padding: '10px 30px',
+                      fontWeight: '500'
+                    }}>
+                      <i className="bi bi-person-walking me-2"></i>Ingresar como Invitado
+                    </Button>
+                  </div>
+                  <div className="text-center mt-2">
                     <Button variant="link" onClick={() => navigate('/')} className="text-decoration-none text-muted">
                       <i className="bi bi-arrow-left me-1"></i>Volver al inicio
                     </Button>
