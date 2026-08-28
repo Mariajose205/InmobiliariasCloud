@@ -21,9 +21,10 @@ function Admin() {
     banos: '0',
     estacionamiento: '0',
     bodega: '0',
-    videoUrl: '',
-    fotoUrl: ''
+    videoUrl: ''
   });
+  const [archivosFotos, setArchivosFotos] = useState([]);
+  const [previewFotos, setPreviewFotos] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const CLAVE_CORRECTA = "Duoc2026";
@@ -58,62 +59,9 @@ function Admin() {
     try {
       const propiedadesGuardadas = localStorage.getItem(PROPIEDADES_KEY);
       let propiedadesData = [];
-      
+
       if (propiedadesGuardadas) {
         propiedadesData = JSON.parse(propiedadesGuardadas);
-      } else {
-        // Datos de ejemplo iniciales
-        propiedadesData = [
-          {
-            id: 1,
-            titulo: 'Hermosa Casa en Las Condes',
-            categoria: 'Casa',
-            precio: 150000000,
-            tipoPrecio: '/ Valor Total',
-            ubicacion: 'Las Condes, Santiago',
-            piezas: 4,
-            banos: 3,
-            estacionamiento: 2,
-            bodega: 1,
-            imagenes: ['imagenes/casa1.jpg'],
-            tipoOperacion: 'Venta',
-            gastosComunes: 50000,
-            videoUrl: ''
-          },
-          {
-            id: 2,
-            titulo: 'Departamento Moderno Centro',
-            categoria: 'Departamento',
-            precio: 85000000,
-            tipoPrecio: '/ Valor Total',
-            ubicacion: 'Santiago Centro',
-            piezas: 2,
-            banos: 1,
-            estacionamiento: 1,
-            bodega: 0,
-            imagenes: ['imagenes/casa1.jpg'],
-            tipoOperacion: 'Venta',
-            gastosComunes: 30000,
-            videoUrl: ''
-          },
-          {
-            id: 3,
-            titulo: 'Terreno en La Dehesa',
-            categoria: 'Terreno',
-            precio: 200000000,
-            tipoPrecio: '/ Valor Total',
-            ubicacion: 'La Dehesa',
-            piezas: 0,
-            banos: 0,
-            estacionamiento: 0,
-            bodega: 0,
-            imagenes: ['imagenes/casa1.jpg'],
-            tipoOperacion: 'Venta',
-            gastosComunes: 0,
-            videoUrl: ''
-          }
-        ];
-        localStorage.setItem(PROPIEDADES_KEY, JSON.stringify(propiedadesData));
       }
 
       setPropiedades(propiedadesData);
@@ -126,11 +74,69 @@ function Admin() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    const nuevosArchivos = [...archivosFotos, ...files];
+    setArchivosFotos(nuevosArchivos);
+
+    // Crear previews
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewFotos(prev => [...prev, reader.result]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    e.target.value = "";
+  };
+
+  const eliminarPreview = (index) => {
+    const nuevosArchivos = archivosFotos.filter((_, i) => i !== index);
+    const nuevosPreviews = previewFotos.filter((_, i) => i !== index);
+    setArchivosFotos(nuevosArchivos);
+    setPreviewFotos(nuevosPreviews);
+  };
+
+  const convertirArchivosABase64 = async (archivos) => {
+    const promesas = archivos.map(archivo => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(archivo);
+      });
+    });
+    return Promise.all(promesas);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      // Validar que haya al menos una imagen para nuevas propiedades
+      if (editingIndex === "" && archivosFotos.length === 0) {
+        alert("Por favor, selecciona al menos una imagen para la propiedad.");
+        setLoading(false);
+        return;
+      }
+
+      let imagenesFinales = [];
+
+      if (editingIndex !== "") {
+        // Mantener imágenes existentes al editar
+        imagenesFinales = [...propiedades[editingIndex].imagenes];
+      }
+
+      // Convertir nuevos archivos a base64
+      if (archivosFotos.length > 0) {
+        const nuevasImagenesBase64 = await convertirArchivosABase64(archivosFotos);
+        imagenesFinales = [...imagenesFinales, ...nuevasImagenesBase64];
+      }
+
       const nuevaPropiedad = {
         id: editingIndex !== '' ? propiedades[editingIndex].id : Date.now(),
         titulo: formData.titulo,
@@ -140,7 +146,7 @@ function Admin() {
         ubicacion: formData.ubicacion,
         piezas: parseInt(formData.piezas) || 0,
         banos: parseInt(formData.banos) || 0,
-        imagenes: formData.fotoUrl ? formData.fotoUrl.split(',').map(url => url.trim()).filter(url => url !== '') : ['imagenes/casa1.jpg'],
+        imagenes: imagenesFinales,
         tipoOperacion: formData.tipoOperacion,
         gastosComunes: parseInt(formData.gastosComunes) || 0,
         estacionamiento: parseInt(formData.estacionamiento) || 0,
@@ -199,9 +205,13 @@ function Admin() {
       banos: p.banos,
       estacionamiento: p.estacionamiento,
       bodega: p.bodega,
-      videoUrl: p.videoUrl || "",
-      fotoUrl: p.imagenes ? p.imagenes.join(',') : ''
+      videoUrl: p.videoUrl || ""
     });
+
+    // Configurar previews de imágenes existentes
+    setArchivosFotos([]);
+    setPreviewFotos(p.imagenes || []);
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -218,9 +228,10 @@ function Admin() {
       banos: '0',
       estacionamiento: '0',
       bodega: '0',
-      videoUrl: '',
-      fotoUrl: ''
+      videoUrl: ''
     });
+    setArchivosFotos([]);
+    setPreviewFotos([]);
     setEditingIndex('');
   };
 
@@ -407,17 +418,70 @@ function Admin() {
               </Form.Group>
 
               <Form.Group className="mb-3">
-                <Form.Label>📸 URLs de Imágenes (separadas por coma)</Form.Label>
+                <Form.Label>📸 Imágenes de la Propiedad</Form.Label>
                 <Form.Control
-                  as="textarea"
-                  name="fotoUrl"
-                  value={formData.fotoUrl}
-                  onChange={handleInputChange}
-                  placeholder="https://ejemplo.com/imagen1.jpg, https://ejemplo.com/imagen2.jpg"
-                  rows={3}
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleFileChange}
                 />
-                <Form.Text>Pega las URLs de las imágenes separadas por coma</Form.Text>
+                <Form.Text>Selecciona una o más imágenes desde tu computadora</Form.Text>
               </Form.Group>
+
+              {previewFotos.length > 0 && (
+                <div className="mb-3">
+                  <Form.Label>Previsualización de Imágenes</Form.Label>
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '10px',
+                    marginTop: '10px'
+                  }}>
+                    {previewFotos.map((preview, index) => (
+                      <div key={index} style={{
+                        position: 'relative',
+                        width: '100px',
+                        height: '100px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                      }}>
+                        <img
+                          src={preview}
+                          alt={`Preview ${index}`}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => eliminarPreview(index)}
+                          style={{
+                            position: 'absolute',
+                            top: '5px',
+                            right: '5px',
+                            background: 'rgba(255, 0, 0, 0.8)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '24px',
+                            height: '24px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="d-flex gap-2">
                 <Button type="submit" variant="success" className="flex-grow-1" disabled={loading}>

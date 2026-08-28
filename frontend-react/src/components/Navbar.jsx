@@ -25,6 +25,9 @@ const Navbar = ({ user, onLogout }) => {
             <Nav.Item id="authSection">
               {user ? (
                 <NavDropdown title={<span><i className="bi bi-person-check-fill me-1"></i>{user.name}</span>} id="user-dropdown">
+                  <NavDropdown.Item as={Link} to="/admin">
+                    <i className="bi bi-gear me-2"></i>Panel Admin
+                  </NavDropdown.Item>
                   <NavDropdown.Item onClick={onLogout}>
                     <i className="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
                   </NavDropdown.Item>

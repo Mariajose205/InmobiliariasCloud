@@ -3,7 +3,7 @@ import React from 'react';
 const WhatsAppButton = () => {
   return (
     <a 
-      href="https://wa.me/56985519073" 
+      href="" 
       target="_blank" 
       rel="noopener noreferrer"
       className="wsp-flotante"
