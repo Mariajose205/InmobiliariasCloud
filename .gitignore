@@ -1,0 +1,28 @@
+# Node
+node_modules/
+dist/
+build/
+*.log
+
+# Maven / Java
+backend/**/target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# Entorno / secretos
+.env
+.env.local
+*.env
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.settings/
+.classpath
+.project
+
+# OS
+Thumbs.db
+.DS_Store

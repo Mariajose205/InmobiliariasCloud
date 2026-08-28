@@ -1,0 +1,20 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+# URL interna del microservicio. El gateway es la unica puerta al exterior;
+# el microservicio no se expone directamente al publico.
+gateway:
+  inmobiliaria-service-url: http://127.0.0.1:8081
+
+security:
+  jwt:
+    # IMPORTANTE: en produccion cambiar esta clave privada. Debe ser larga (>= 32 chars).
+    secret: "CambiaEstaClaveSecretaDeberiaSerSuficientementeLarga123456"
+    expiration-ms: 3600000
+  admin:
+    username: admin
+    password: "Duoc2026"
