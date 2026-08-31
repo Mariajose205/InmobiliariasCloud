@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Form, Button, Badge, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Button, Badge } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
+import { useMsal } from '@azure/msal-react';
+import { esCuentaAdmin } from '../msalConfig';
 
 const PROPIEDADES_KEY = 'inmobiliaria_propiedades';
 
 function Admin() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const { instance, accounts, inProgress } = useMsal();
+  const navigate = useNavigate();
   const [propiedades, setPropiedades] = useState([]);
   const [editingIndex, setEditingIndex] = useState('');
   const [formData, setFormData] = useState({
@@ -27,32 +29,12 @@ function Admin() {
   const [previewFotos, setPreviewFotos] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const CLAVE_CORRECTA = "Duoc2026";
-
   useEffect(() => {
-    const session = sessionStorage.getItem('admin_session');
-    if (session === 'active') {
-      setIsAuthenticated(true);
-      cargarPropiedades();
-    }
+    cargarPropiedades();
   }, []);
 
-  const verificarAcceso = () => {
-    if (password === CLAVE_CORRECTA) {
-      setIsAuthenticated(true);
-      sessionStorage.setItem('admin_session', 'active');
-      setError('');
-      cargarPropiedades();
-    } else {
-      setError('Clave incorrecta. Inténtalo de nuevo.');
-      setPassword('');
-    }
-  };
-
   const cerrarSesion = () => {
-    setIsAuthenticated(false);
-    sessionStorage.removeItem('admin_session');
-    setPassword('');
+    instance.logoutPopup();
   };
 
   const cargarPropiedades = () => {
@@ -239,23 +221,26 @@ function Admin() {
     return new Intl.NumberFormat('es-CL').format(precio);
   };
 
-  if (!isAuthenticated) {
+  const isAdmin = esCuentaAdmin(accounts[0]);
+  const isLoggedIn = accounts.length > 0;
+
+  useEffect(() => {
+    if (inProgress === 'none' && !isLoggedIn) {
+      navigate('/login');
+    }
+  }, [inProgress, isLoggedIn, navigate]);
+
+  if (!isAdmin) {
     return (
-      <Container style={{ maxWidth: '400px', marginTop: '100px' }}>
-        <Card className="shadow-sm p-4">
-          <h3 className="text-center mb-4">🔑 Panel Administrativo</h3>
-          <Form.Group className="mb-3">
-            <Form.Label>Contraseña de Acceso</Form.Label>
-            <Form.Control
-              type="password"
-              placeholder="Introduce la clave..."
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && verificarAcceso()}
-            />
-          </Form.Group>
-          {error && <Alert variant="danger" className="small mt-2">{error}</Alert>}
-          <Button className="btn-primary w-100" onClick={verificarAcceso}>Ingresar</Button>
+      <Container style={{ maxWidth: '500px', marginTop: '100px' }}>
+        <Card className="shadow-sm p-4 text-center">
+          <h3 className="mb-3">🔑 Panel Administrativo</h3>
+          {!isLoggedIn ? (
+            <p className="text-muted">Debes iniciar sesión con una cuenta de Microsoft para acceder.</p>
+          ) : (
+            <p className="text-muted">Solo el administrador puede acceder a este panel.</p>
+          )}
+          <Button variant="primary" onClick={() => navigate('/login')}>Ir al inicio de sesión</Button>
         </Card>
       </Container>
     );

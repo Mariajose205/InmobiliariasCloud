@@ -18,3 +18,13 @@ security:
   admin:
     username: admin
     password: "Duoc2026"
+
+# Autenticacion mediante Azure Entra ID.
+# El gateway valida el token (id/access token) emitido por el tenant y decide,
+# segun el email del usuario, si tiene rol de administrador.
+azure:
+  tenant-id: "680da6eb-42e0-4147-bda4-8c06e4819411"
+  client-id: "f345fdc4-1687-49d0-b0cc-e0d45eb85731"
+  admin-email: "administrador@inmobiliariaduoc.onmicrosoft.com"
+  # URI del JWKS. Si se deja vacia, se deduce de tenant-id.
+  jwks-uri: "https://login.microsoftonline.com/680da6eb-42e0-4147-bda4-8c06e4819411/discovery/v2.0/keys"

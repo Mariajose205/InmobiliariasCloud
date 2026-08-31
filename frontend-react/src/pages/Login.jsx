@@ -1,116 +1,51 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Form, Button, Alert, Tabs, Tab } from 'react-bootstrap';
+import { Container, Button, Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-
-const USERS_KEY = 'inmobiliaria_users';
-const SESSION_KEY = 'inmobiliaria_session';
+import { useMsal } from '@azure/msal-react';
+import { loginRequest, esCuentaAdmin } from '../msalConfig';
 
 function Login() {
-  const [activeTab, setActiveTab] = useState('login');
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [registerName, setRegisterName] = useState('');
-  const [registerEmail, setRegisterEmail] = useState('');
-  const [registerPassword, setRegisterPassword] = useState('');
-  const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
-  const [loginAlert, setLoginAlert] = useState({ show: false, message: '', type: '' });
-  const [registerAlert, setRegisterAlert] = useState({ show: false, message: '', type: '' });
-  
+  const { instance, accounts, inProgress } = useMsal();
   const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const getUsers = () => {
-    const users = localStorage.getItem(USERS_KEY);
-    return users ? JSON.parse(users) : [];
-  };
-
-  const saveUsers = (users) => {
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  };
-
-  const showAlert = (type, message, isLogin) => {
-    if (isLogin) {
-      setLoginAlert({ show: true, message, type });
-    } else {
-      setRegisterAlert({ show: true, message, type });
-    }
-    setTimeout(() => {
-      if (isLogin) {
-        setLoginAlert({ show: false, message: '', type: '' });
-      } else {
-        setRegisterAlert({ show: false, message: '', type: '' });
-      }
-    }, 5000);
-  };
-
-  const handleLogin = (e) => {
-    e.preventDefault();
-    const users = getUsers();
-    const user = users.find(u => u.email === loginEmail && u.password === loginPassword);
-    
-    if (user) {
-      const session = {
-        email: user.email,
-        name: user.name,
-        loggedIn: true
-      };
-      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-      showAlert('success', '¡Sesión iniciada correctamente! Redirigiendo...', true);
-      
-      setTimeout(() => {
-        navigate('/');
-      }, 1500);
-    } else {
-      showAlert('danger', 'Correo o contraseña incorrectos', true);
-    }
-  };
-
-  const handleRegister = (e) => {
-    e.preventDefault();
-    
-    if (registerPassword !== registerConfirmPassword) {
-      showAlert('danger', 'Las contraseñas no coinciden', false);
-      return;
-    }
-    
-    if (registerPassword.length < 6) {
-      showAlert('warning', 'La contraseña debe tener al menos 6 caracteres', false);
+  const handleLogin = async () => {
+    // Si ya hay una cuenta autenticada, no hace falta abrir el flujo de nuevo.
+    if (accounts.length > 0) {
+      navigate(esCuentaAdmin(accounts[0]) ? '/admin' : '/');
       return;
     }
 
-    const users = getUsers();
-    
-    if (users.find(u => u.email === registerEmail)) {
-      showAlert('warning', 'Este correo ya está registrado', false);
+    if (inProgress === 'login') {
+      setError('Ya hay un proceso de login en progreso. Por favor espera.');
       return;
     }
-    
-    const newUser = {
-      name: registerName,
-      email: registerEmail,
-      password: registerPassword,
-      createdAt: new Date().toISOString()
-    };
-    
-    users.push(newUser);
-    saveUsers(users);
-    
-    showAlert('success', '¡Cuenta creada exitosamente! Ahora puedes iniciar sesión', false);
-    
-    setTimeout(() => {
-      setActiveTab('login');
-      setLoginEmail(registerEmail);
-    }, 1500);
+
+    setLoading(true);
+    setError('');
+
+    try {
+      // Redireccion a Azure y de vuelta. handleRedirectPromise (main.jsx)
+      // completa el login y redirige al panel admin o a home.
+      await instance.loginRedirect(loginRequest);
+    } catch (error) {
+      console.error('Error de login:', error);
+      setError('Error al iniciar sesión con Azure Entra ID');
+      setLoading(false);
+    }
   };
 
+  // Redirección automática SOLO cuando no hay una interacción en curso.
+  // Evita que al iniciar sesión vuelva a /login y se inicie sesión de nuevo.
   useEffect(() => {
-    const session = localStorage.getItem(SESSION_KEY);
-    if (session) {
-      const parsedSession = JSON.parse(session);
-      if (parsedSession.loggedIn) {
-        navigate('/');
+    if (inProgress === 'none') {
+      if (accounts.length > 0) {
+        const esAdmin = esCuentaAdmin(accounts[0]);
+        navigate(esAdmin ? '/admin' : '/');
       }
     }
-  }, [navigate]);
+  }, [inProgress, accounts, navigate]);
 
   return (
     <div style={{
@@ -128,146 +63,61 @@ function Login() {
           borderRadius: '20px',
           boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
           overflow: 'hidden',
-          maxWidth: '900px',
-          width: '100%'
+          maxWidth: '500px',
+          width: '100%',
+          padding: '40px'
         }}>
-          <Row className="g-0">
-            <Col lg={5} className="d-none d-lg-flex flex-column" style={{
-              background: 'linear-gradient(135deg, #f08800b0 0%, #000000 100%)',
+          <div className="text-center mb-4">
+            <i className="bi bi-house-door-fill" style={{ fontSize: '4rem', color: '#f08800' }}></i>
+            <h3 className="mt-3 fw-bold">Inmobiliarias Duroc</h3>
+            <p className="mb-0 text-muted">Inicia sesión con tu cuenta de Microsoft</p>
+          </div>
+
+          {error && (
+            <Alert variant="danger" className="mb-3" onClose={() => setError('')} dismissible>
+              {error}
+            </Alert>
+          )}
+
+          <Button 
+            onClick={handleLogin}
+            disabled={loading || inProgress === 'login'}
+            className="w-100 mb-3"
+            style={{
+              background: loading || inProgress === 'login' ? '#6c757d' : '#0078d4',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '12px 30px',
+              fontWeight: '600',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'white',
-              padding: '40px'
-            }}>
-              <div className="text-center">
-                <i className="bi bi-house-door-fill" style={{ fontSize: '4rem' }}></i>
-                <h3 className="mt-3 fw-bold">Inmobiliarias Duroc</h3>
-                <p className="mb-0">Tu hogar ideal está aquí y en Duroc</p>
-              </div>
-            </Col>
-            <Col lg={7} style={{ padding: '40px' }}>
-              <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-4" style={{ border: 'none' }}>
-                <Tab eventKey="login" title={<span><i className="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión</span>}>
-                  {loginAlert.show && (
-                    <Alert variant={loginAlert.type} className="mb-3" onClose={() => setLoginAlert({ show: false, message: '', type: '' })} dismissible>
-                      {loginAlert.message}
-                    </Alert>
-                  )}
-                  <Form onSubmit={handleLogin}>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="fw-semibold">Correo Electrónico</Form.Label>
-                      <Form.Control
-                        type="email"
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
-                        required
-                        placeholder="tu@email.com"
-                        style={{ borderRadius: '10px', padding: '12px 15px', border: '2px solid #e0e0e0' }}
-                      />
-                    </Form.Group>
-                    <Form.Group className="mb-4">
-                      <Form.Label className="fw-semibold">Contraseña</Form.Label>
-                      <Form.Control
-                        type="password"
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        required
-                        placeholder="••••••••"
-                        style={{ borderRadius: '10px', padding: '12px 15px', border: '2px solid #e0e0e0' }}
-                      />
-                    </Form.Group>
-                    <Button type="submit" className="w-100" style={{
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '12px 30px',
-                      fontWeight: '600'
-                    }}>
-                      <i className="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión
-                    </Button>
-                  </Form>
-                  <div className="text-center mt-3">
-                    <Button variant="outline-secondary" onClick={() => navigate('/')} className="w-100" style={{
-                      borderRadius: '10px',
-                      padding: '10px 30px',
-                      fontWeight: '500'
-                    }}>
-                      <i className="bi bi-person-walking me-2"></i>Ingresar como Invitado
-                    </Button>
-                  </div>
-                  <div className="text-center mt-2">
-                    <Button variant="link" onClick={() => navigate('/')} className="text-decoration-none text-muted">
-                      <i className="bi bi-arrow-left me-1"></i>Volver al inicio
-                    </Button>
-                  </div>
-                </Tab>
-                <Tab eventKey="register" title={<span><i className="bi bi-person-plus me-2"></i>Registrarse</span>}>
-                  {registerAlert.show && (
-                    <Alert variant={registerAlert.type} className="mb-3" onClose={() => setRegisterAlert({ show: false, message: '', type: '' })} dismissible>
-                      {registerAlert.message}
-                    </Alert>
-                  )}
-                  <Form onSubmit={handleRegister}>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="fw-semibold">Nombre Completo</Form.Label>
-                      <Form.Control
-                        type="text"
-                        value={registerName}
-                        onChange={(e) => setRegisterName(e.target.value)}
-                        required
-                        placeholder="Tu nombre"
-                        style={{ borderRadius: '10px', padding: '12px 15px', border: '2px solid #e0e0e0' }}
-                      />
-                    </Form.Group>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="fw-semibold">Correo Electrónico</Form.Label>
-                      <Form.Control
-                        type="email"
-                        value={registerEmail}
-                        onChange={(e) => setRegisterEmail(e.target.value)}
-                        required
-                        placeholder="tu@email.com"
-                        style={{ borderRadius: '10px', padding: '12px 15px', border: '2px solid #e0e0e0' }}
-                      />
-                    </Form.Group>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="fw-semibold">Contraseña</Form.Label>
-                      <Form.Control
-                        type="password"
-                        value={registerPassword}
-                        onChange={(e) => setRegisterPassword(e.target.value)}
-                        required
-                        placeholder="Mínimo 6 caracteres"
-                        minLength={6}
-                        style={{ borderRadius: '10px', padding: '12px 15px', border: '2px solid #e0e0e0' }}
-                      />
-                    </Form.Group>
-                    <Form.Group className="mb-4">
-                      <Form.Label className="fw-semibold">Confirmar Contraseña</Form.Label>
-                      <Form.Control
-                        type="password"
-                        value={registerConfirmPassword}
-                        onChange={(e) => setRegisterConfirmPassword(e.target.value)}
-                        required
-                        placeholder="••••••••"
-                        style={{ borderRadius: '10px', padding: '12px 15px', border: '2px solid #e0e0e0' }}
-                      />
-                    </Form.Group>
-                    <Button type="submit" className="w-100" style={{
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '12px 30px',
-                      fontWeight: '600'
-                    }}>
-                      <i className="bi bi-person-plus me-2"></i>Crear Cuenta
-                    </Button>
-                  </Form>
-                </Tab>
-              </Tabs>
-            </Col>
-          </Row>
+              gap: '10px'
+            }}
+          >
+            {loading || inProgress === 'login' ? (
+              <>
+                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                Cargando...
+              </>
+            ) : (
+              <>
+                <svg width="20" height="20" viewBox="0 0 23 23" fill="none">
+                  <path d="M11.5 0L0 11.5L11.5 23L23 11.5L11.5 0Z" fill="#F25022"/>
+                  <path d="M11.5 0L0 11.5L11.5 23L23 11.5L11.5 0Z" fill="#00A4EF" transform="translate(0, 0)"/>
+                  <path d="M11.5 0L0 11.5L11.5 23L23 11.5L11.5 0Z" fill="#7FBA00" transform="translate(0, 0)"/>
+                  <path d="M11.5 0L0 11.5L11.5 23L23 11.5L11.5 0Z" fill="#FFB900" transform="translate(0, 0)"/>
+                </svg>
+                Iniciar sesión con Microsoft
+              </>
+            )}
+          </Button>
+
+          <div className="text-center mt-3">
+            <Button variant="link" onClick={() => navigate('/')} className="text-decoration-none text-muted">
+              <i className="bi bi-arrow-left me-1"></i>Volver al inicio
+            </Button>
+          </div>
         </div>
       </Container>
     </div>

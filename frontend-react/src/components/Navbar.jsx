@@ -1,8 +1,37 @@
 import React from 'react';
-import { Navbar as BootstrapNavbar, Container, Nav, NavDropdown } from 'react-bootstrap';
+import { Navbar as BootstrapNavbar, Container, Nav, Button } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
+import { useMsal } from '@azure/msal-react';
+import { esCuentaAdmin, haySesion, limpiarSesion } from '../msalConfig';
 
-const Navbar = ({ user, onLogout }) => {
+const Navbar = () => {
+  const { instance, accounts } = useMsal();
+
+  // Se considera que hay sesion si MSAL tiene una cuenta activa O si se
+  // persistio manualmente el inicio de sesion (robusto frente a la cache).
+  const isLoggedIn = accounts.length > 0 || haySesion();
+
+  const handleLogout = async () => {
+    limpiarSesion();
+    localStorage.removeItem('inmobiliaria_session');
+    try {
+      await instance.logoutPopup({ postLogoutRedirectUri: '/login' });
+    } catch (e) {
+      console.error('Error al cerrar sesión:', e);
+    }
+    window.location.href = '/login';
+  };
+
+  const handleForceLogout = () => {
+    limpiarSesion();
+    localStorage.clear();
+    sessionStorage.clear();
+    instance.logoutPopup({ postLogoutRedirectUri: '/login' });
+    window.location.href = '/login';
+  };
+
+  const isAdmin = esCuentaAdmin(accounts[0]);
+
   return (
     <BootstrapNavbar expand="lg" className="navbar-dark">
       <Container>
@@ -12,7 +41,7 @@ const Navbar = ({ user, onLogout }) => {
         </BootstrapNavbar.Brand>
         <BootstrapNavbar.Toggle aria-controls="navbarNav" />
         <BootstrapNavbar.Collapse id="navbarNav">
-          <Nav className="ms-auto">
+          <Nav className="ms-auto align-items-center">
             <Nav.Item>
               <Nav.Link as={Link} to="#" className="active">Inicio</Nav.Link>
             </Nav.Item>
@@ -22,20 +51,39 @@ const Navbar = ({ user, onLogout }) => {
             <Nav.Item>
               <Nav.Link href="#contacto">Contacto</Nav.Link>
             </Nav.Item>
-            <Nav.Item id="authSection">
-              {user ? (
-                <NavDropdown title={<span><i className="bi bi-person-check-fill me-1"></i>{user.name}</span>} id="user-dropdown">
-                  <NavDropdown.Item as={Link} to="/admin">
-                    <i className="bi bi-gear me-2"></i>Panel Admin
-                  </NavDropdown.Item>
-                  <NavDropdown.Item onClick={onLogout}>
-                    <i className="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
-                  </NavDropdown.Item>
-                </NavDropdown>
-              ) : (
-                <Nav.Link as={Link} to="/login">
-                  <i className="bi bi-person-circle me-1"></i>Iniciar Sesión
+            {isAdmin && (
+              <Nav.Item>
+                <Nav.Link as={Link} to="/admin">
+                  <i className="bi bi-gear-fill me-1"></i>Admin
                 </Nav.Link>
+              </Nav.Item>
+            )}
+            <Nav.Item id="authSection" className="ms-2">
+              {isLoggedIn ? (
+                <>
+                  <Button 
+                    variant="danger" 
+                    size="sm" 
+                    onClick={handleLogout}
+                    className="ms-2"
+                  >
+                    <i className="bi bi-box-arrow-right me-1"></i>Cerrar Sesión
+                  </Button>
+                  <Button 
+                    variant="warning" 
+                    size="sm" 
+                    onClick={handleForceLogout}
+                    className="ms-2"
+                  >
+                    <i className="bi bi-exclamation-triangle me-1"></i>Forzar Cierre
+                  </Button>
+                </>
+              ) : (
+                <Nav.Item as={Link} to="/login" className="text-decoration-none ms-2">
+                  <Button variant="primary" size="sm" style={{ borderRadius: '10px', padding: '8px 20px', fontWeight: 600 }}>
+                    <i className="bi bi-person-circle me-1"></i>Iniciar Sesión
+                  </Button>
+                </Nav.Item>
               )}
             </Nav.Item>
           </Nav>

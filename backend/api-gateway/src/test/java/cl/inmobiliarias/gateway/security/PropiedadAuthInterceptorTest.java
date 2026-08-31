@@ -2,8 +2,12 @@ package cl.inmobiliarias.gateway.security;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -16,7 +20,17 @@ class PropiedadAuthInterceptorTest {
     void setUp() {
         String secret = "ClaveDePruebaLarguísimaParaFirmarTokensCorrectamente123456";
         jwtUtil = new JwtUtil(secret, 3600000L);
-        interceptor = new PropiedadAuthInterceptor(jwtUtil);
+
+        // RestTemplate sin red: no se usara para tokens propios.
+        RestTemplate restTemplate = new RestTemplate(new SimpleClientHttpRequestFactory());
+        AzureTokenValidator azureValidator = new AzureTokenValidator(
+                restTemplate, new ObjectMapper(),
+                "680da6eb-42e0-4147-bda4-8c06e4819411",
+                "f345fdc4-1687-49d0-b0cc-e0d45eb85731",
+                "https://login.microsoftonline.com/680da6eb-42e0-4147-bda4-8c06e4819411/discovery/v2.0/keys");
+
+        interceptor = new PropiedadAuthInterceptor(jwtUtil, azureValidator,
+                "Administrador@InmobiliariaDuoc.onmicrosoft.com");
     }
 
     private MockHttpServletRequest request(String method, String token) {
