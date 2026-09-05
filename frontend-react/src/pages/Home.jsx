@@ -22,59 +22,6 @@ function Home() {
 
       if (propiedadesGuardadas) {
         propiedadesData = JSON.parse(propiedadesGuardadas);
-      } else {
-        // Datos de ejemplo iniciales
-        propiedadesData = [
-          {
-            id: 1,
-            titulo: 'Hermosa Casa en Las Condes',
-            categoria: 'Casa',
-            precio: 150000000,
-            tipoPrecio: '/ Valor Total',
-            ubicacion: 'Las Condes, Santiago',
-            piezas: 4,
-            banos: 3,
-            estacionamiento: 2,
-            bodega: 1,
-            imagenes: ['imagenes/casa1.jpg'],
-            tipoOperacion: 'Venta',
-            gastosComunes: 50000,
-            videoUrl: ''
-          },
-          {
-            id: 2,
-            titulo: 'Departamento Moderno Centro',
-            categoria: 'Departamento',
-            precio: 85000000,
-            tipoPrecio: '/ Valor Total',
-            ubicacion: 'Santiago Centro',
-            piezas: 2,
-            banos: 1,
-            estacionamiento: 1,
-            bodega: 0,
-            imagenes: ['imagenes/casa1.jpg'],
-            tipoOperacion: 'Venta',
-            gastosComunes: 30000,
-            videoUrl: ''
-          },
-          {
-            id: 3,
-            titulo: 'Terreno en La Dehesa',
-            categoria: 'Terreno',
-            precio: 200000000,
-            tipoPrecio: '/ Valor Total',
-            ubicacion: 'La Dehesa',
-            piezas: 0,
-            banos: 0,
-            estacionamiento: 0,
-            bodega: 0,
-            imagenes: ['imagenes/casa1.jpg'],
-            tipoOperacion: 'Venta',
-            gastosComunes: 0,
-            videoUrl: ''
-          }
-        ];
-        localStorage.setItem(PROPIEDADES_KEY, JSON.stringify(propiedadesData));
       }
 
       setTodasLasPropiedades(propiedadesData);
