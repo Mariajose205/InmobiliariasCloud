@@ -20,11 +20,28 @@ security:
     password: "Duoc2026"
 
 # Autenticacion mediante Azure Entra ID.
-# El gateway valida el token (id/access token) emitido por el tenant y decide,
-# segun el email del usuario, si tiene rol de administrador.
+# El gateway valida el ACCESS TOKEN v2.0 emitido por el tenant con audiencia
+# hacia NUESTRA API (Expose an API -> api://{client-id}/access_as_user) y
+# decide, segun el email del usuario, si tiene rol de administrador.
+# Los ID Tokens y los access tokens de Graph ya no son validos para las rutas
+# privadas porque no cumplen (aud y/o scp).
 azure:
   tenant-id: "680da6eb-42e0-4147-bda4-8c06e4819411"
   client-id: "f345fdc4-1687-49d0-b0cc-e0d45eb85731"
   admin-email: "administrador@inmobiliariaduoc.onmicrosoft.com"
+  # Identificador alternativo del admin: el claim "oid" de los access tokens
+  # SIEMPRE esta presente (a diferencia del email). Si lo configuras aqui, la
+  # autorizacion por object-id funciona sin optional claims en el portal.
+  admin-object-id: ""
+  # Corredor: puede publicar (crear) y eliminar propiedades, pero NO editarlas.
+  corredor-email: "Corredor@InmobiliariaDuoc.onmicrosoft.com"
+  corredor-object-id: "0a73de94-2722-4221-836c-bd7f3af16980"
   # URI del JWKS. Si se deja vacia, se deduce de tenant-id.
   jwks-uri: "https://login.microsoftonline.com/680da6eb-42e0-4147-bda4-8c06e4819411/discovery/v2.0/keys"
+  # App ID URI que se configura en Entra ID ("Expose an API").
+  app-id-uri: "api://f345fdc4-1687-49d0-b0cc-e0d45eb85731"
+  # Scope (delegado) con el que el front pide el access token para esta API.
+  scope: "access_as_user"
+  # Audiencias aceptadas en el claim "aud": App ID URI (api://...) y/o el
+  # GUID del client-id. Lista separada por comas.
+  audiences: "api://f345fdc4-1687-49d0-b0cc-e0d45eb85731,f345fdc4-1687-49d0-b0cc-e0d45eb85731"

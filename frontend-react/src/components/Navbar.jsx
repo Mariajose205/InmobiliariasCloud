@@ -2,7 +2,7 @@ import React from 'react';
 import { Navbar as BootstrapNavbar, Container, Nav, Button } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
-import { esCuentaAdmin, haySesion, limpiarSesion } from '../msalConfig';
+import { obtenerRolCuenta, haySesion, limpiarSesion } from '../msalConfig';
 
 const Navbar = () => {
   const { instance, accounts } = useMsal();
@@ -30,7 +30,9 @@ const Navbar = () => {
     window.location.href = '/login';
   };
 
-  const isAdmin = esCuentaAdmin(accounts[0]);
+  const isAdmin = obtenerRolCuenta(accounts[0]) === 'admin';
+  const isCorredor = obtenerRolCuenta(accounts[0]) === 'corredor';
+  const puedeUsarPanel = isAdmin || isCorredor;
 
   return (
     <BootstrapNavbar expand="lg" className="navbar-dark">
@@ -51,7 +53,7 @@ const Navbar = () => {
             <Nav.Item>
               <Nav.Link href="#contacto">Contacto</Nav.Link>
             </Nav.Item>
-            {isAdmin && (
+            {puedeUsarPanel && (
               <Nav.Item>
                 <Nav.Link as={Link} to="/admin">
                   <i className="bi bi-gear-fill me-1"></i>Admin

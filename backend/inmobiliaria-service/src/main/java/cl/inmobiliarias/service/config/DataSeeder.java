@@ -26,15 +26,15 @@ public class DataSeeder implements CommandLineRunner {
                 new Propiedad(
                         "Hermosa Casa en Las Condes", "Casa", "Venta", 150000000L,
                         "/ Valor Total", 50000L, "Las Condes, Santiago",
-                        4, 3, 2, 1, "", List.of("imagenes/casa1.jpg")),
+                        4, 3, 2, 1, "", List.of("imagenes/Habitacion_fondo.png")),
                 new Propiedad(
                         "Departamento Moderno Centro", "Departamento", "Venta", 85000000L,
                         "/ Valor Total", 30000L, "Santiago Centro",
-                        2, 1, 1, 0, "", List.of("imagenes/casa1.jpg")),
+                        2, 1, 1, 0, "", List.of("imagenes/Logo_Principal.jpeg")),
                 new Propiedad(
                         "Terreno en La Dehesa", "Terreno", "Venta", 200000000L,
                         "/ Valor Total", 0L, "La Dehesa",
-                        0, 0, 0, 0, "", List.of("imagenes/casa1.jpg"))
+                        0, 0, 0, 0, "", List.of("imagenes/Fondo_negro.png"))
         ));
     }
 }

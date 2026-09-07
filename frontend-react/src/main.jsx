@@ -2,7 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
-import { msalInstance, esCuentaAdmin } from './msalConfig'
+import { msalInstance, obtenerRolCuenta } from './msalConfig'
 
 async function bootstrap() {
   try {
@@ -19,10 +19,10 @@ async function bootstrap() {
     }
 
     // Si venimos de un login reciente por redireccion, guardamos a donde
-    // redirigir una vez montada la app (admin si es el administrador).
+    // redirigir una vez montada la app (panel interno para admin y corredor).
     if (response?.account) {
-      const esAdmin = esCuentaAdmin(response.account);
-      sessionStorage.setItem('inmobiliaria_post_login', esAdmin ? '/admin' : '/');
+      const rol = obtenerRolCuenta(response.account);
+      sessionStorage.setItem('inmobiliaria_post_login', rol ? '/admin' : '/');
       guardarEmailSesion(response.account);
     }
   } catch (error) {

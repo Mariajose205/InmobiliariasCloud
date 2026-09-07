@@ -2,15 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Form, Button, Badge } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
-import { esCuentaAdmin } from '../msalConfig';
-
-const PROPIEDADES_KEY = 'inmobiliaria_propiedades';
+import { obtenerRolCuenta } from '../msalConfig';
+import {
+  obtenerPropiedades,
+  crearPropiedad,
+  actualizarPropiedad,
+  eliminarPropiedad as eliminarPropiedadApi
+} from '../api/apiClient';
 
 function Admin() {
   const { instance, accounts, inProgress } = useMsal();
   const navigate = useNavigate();
   const [propiedades, setPropiedades] = useState([]);
-  const [editingIndex, setEditingIndex] = useState('');
+  const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     titulo: '',
     categoria: '',
@@ -37,18 +41,13 @@ function Admin() {
     instance.logoutPopup();
   };
 
-  const cargarPropiedades = () => {
+  const cargarPropiedades = async () => {
     try {
-      const propiedadesGuardadas = localStorage.getItem(PROPIEDADES_KEY);
-      let propiedadesData = [];
-
-      if (propiedadesGuardadas) {
-        propiedadesData = JSON.parse(propiedadesGuardadas);
-      }
-
-      setPropiedades(propiedadesData);
+      const propiedadesData = await obtenerPropiedades();
+      setPropiedades(propiedadesData || []);
     } catch (err) {
       console.error("Error al cargar propiedades:", err);
+      setPropiedades([]);
     }
   };
 
@@ -99,8 +98,15 @@ function Admin() {
     setLoading(true);
 
     try {
+      // Defensa en profundidad: el corredor no puede editar (PUT es solo admin).
+      if (editingId !== null && !isAdmin) {
+        alert("El usuario corredor solo puede publicar y eliminar propiedades, no editarlas.");
+        setLoading(false);
+        return;
+      }
+
       // Validar que haya al menos una imagen para nuevas propiedades
-      if (editingIndex === "" && archivosFotos.length === 0) {
+      if (editingId === null && archivosFotos.length === 0) {
         alert("Por favor, selecciona al menos una imagen para la propiedad.");
         setLoading(false);
         return;
@@ -108,9 +114,12 @@ function Admin() {
 
       let imagenesFinales = [];
 
-      if (editingIndex !== "") {
+      if (editingId !== null) {
         // Mantener imágenes existentes al editar
-        imagenesFinales = [...propiedades[editingIndex].imagenes];
+        const actual = propiedades.find(p => p.id === editingId);
+        if (actual) {
+          imagenesFinales = [...(actual.imagenes || [])];
+        }
       }
 
       // Convertir nuevos archivos a base64
@@ -119,8 +128,8 @@ function Admin() {
         imagenesFinales = [...imagenesFinales, ...nuevasImagenesBase64];
       }
 
-      const nuevaPropiedad = {
-        id: editingIndex !== '' ? propiedades[editingIndex].id : Date.now(),
+      // El id lo genera el backend al crear; al actualizar va en la URL.
+      const propiedad = {
         titulo: formData.titulo,
         categoria: formData.categoria,
         precio: parseInt(formData.precio) || 0,
@@ -136,18 +145,15 @@ function Admin() {
         videoUrl: formData.videoUrl
       };
 
-      let nuevasPropiedades;
-      if (editingIndex === "") {
-        nuevasPropiedades = [nuevaPropiedad, ...propiedades];
+      if (editingId === null) {
+        await crearPropiedad(propiedad);
         alert("¡Éxito! Propiedad publicada correctamente.");
       } else {
-        nuevasPropiedades = [...propiedades];
-        nuevasPropiedades[editingIndex] = nuevaPropiedad;
+        await actualizarPropiedad(editingId, propiedad);
         alert("¡Éxito! Propiedad actualizada correctamente.");
       }
 
-      localStorage.setItem(PROPIEDADES_KEY, JSON.stringify(nuevasPropiedades));
-      setPropiedades(nuevasPropiedades);
+      await cargarPropiedades();
       resetFormulario();
 
     } catch (error) {
@@ -158,23 +164,27 @@ function Admin() {
     }
   };
 
-  const eliminarPropiedad = (idx) => {
+  const eliminarPropiedad = async (idx) => {
     const target = propiedades[idx];
     if (confirm(`¿Estás seguro de eliminar permanentemente "${target.titulo}"?`)) {
       try {
-        const nuevasPropiedades = propiedades.filter((_, i) => i !== idx);
-        localStorage.setItem(PROPIEDADES_KEY, JSON.stringify(nuevasPropiedades));
-        setPropiedades(nuevasPropiedades);
+        await eliminarPropiedadApi(target.id);
+        await cargarPropiedades();
         alert("Eliminado con éxito.");
       } catch (err) {
-        alert("No se pudo eliminar: " + err.message);
+        alert("No se pudo eliminar: " + (err.message || err));
       }
     }
   };
 
   const prepararEditar = (idx) => {
+    // El corredor no puede editar propiedades (solo publicar y eliminar).
+    if (!isAdmin) {
+      alert("El usuario corredor solo puede publicar y eliminar propiedades, no editarlas.");
+      return;
+    }
     const p = propiedades[idx];
-    setEditingIndex(idx);
+    setEditingId(p.id);
     setFormData({
       titulo: p.titulo,
       categoria: p.categoria || "Casa",
@@ -214,14 +224,17 @@ function Admin() {
     });
     setArchivosFotos([]);
     setPreviewFotos([]);
-    setEditingIndex('');
+    setEditingId(null);
   };
 
   const formatearPrecio = (precio) => {
     return new Intl.NumberFormat('es-CL').format(precio);
   };
 
-  const isAdmin = esCuentaAdmin(accounts[0]);
+  const rol = obtenerRolCuenta(accounts[0]);
+  const isAdmin = rol === 'admin';
+  const isCorredor = rol === 'corredor';
+  const isPermitido = isAdmin || isCorredor;
   const isLoggedIn = accounts.length > 0;
 
   useEffect(() => {
@@ -230,7 +243,7 @@ function Admin() {
     }
   }, [inProgress, isLoggedIn, navigate]);
 
-  if (!isAdmin) {
+  if (!isPermitido) {
     return (
       <Container style={{ maxWidth: '500px', marginTop: '100px' }}>
         <Card className="shadow-sm p-4 text-center">
@@ -238,7 +251,7 @@ function Admin() {
           {!isLoggedIn ? (
             <p className="text-muted">Debes iniciar sesión con una cuenta de Microsoft para acceder.</p>
           ) : (
-            <p className="text-muted">Solo el administrador puede acceder a este panel.</p>
+            <p className="text-muted">Solo el administrador y el corredor pueden acceder a este panel.</p>
           )}
           <Button variant="primary" onClick={() => navigate('/login')}>Ir al inicio de sesión</Button>
         </Card>
@@ -250,13 +263,19 @@ function Admin() {
     <Container className="my-5">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>🏢 Gestión de Catálogo de Propiedades</h2>
-        <Button variant="danger" size="sm" onClick={cerrarSesion}>🔒 Cerrar Sesión</Button>
+        <div className="d-flex align-items-center gap-2">
+          <Badge bg={isAdmin ? 'primary' : 'info'}>{isAdmin ? 'Administrador' : 'Corredor'}</Badge>
+          <Button variant="outline-primary" size="sm" onClick={() => navigate('/')}>
+            <i className="bi bi-house-door me-1"></i>Ver Página Principal
+          </Button>
+          <Button variant="danger" size="sm" onClick={cerrarSesion}>🔒 Cerrar Sesión</Button>
+        </div>
       </div>
 
       <Row className="g-4">
         <Col xs={12} lg={5}>
           <Card className="p-4 shadow-sm">
-            <h4 className="mb-3">{editingIndex !== '' ? '✏️ Editando Propiedad' : '➕ Añadir Nueva Propiedad'}</h4>
+            <h4 className="mb-3">{editingId !== null ? '✏️ Editando Propiedad' : '➕ Añadir Nueva Propiedad'}</h4>
             <Form onSubmit={handleSubmit}>
               <Form.Group className="mb-3">
                 <Form.Label>Título del Proyecto/Propiedad</Form.Label>
@@ -470,9 +489,9 @@ function Admin() {
 
               <div className="d-flex gap-2">
                 <Button type="submit" variant="success" className="flex-grow-1" disabled={loading}>
-                  {loading ? '⏳ Procesando...' : `💾 ${editingIndex !== '' ? 'Actualizar' : 'Publicar'} Proyecto`}
+                  {loading ? '⏳ Procesando...' : `💾 ${editingId !== null ? 'Actualizar' : 'Publicar'} Proyecto`}
                 </Button>
-                {editingIndex !== '' && (
+                {editingId !== null && (
                   <Button variant="secondary" onClick={resetFormulario}>Cancelar</Button>
                 )}
               </div>
@@ -518,14 +537,16 @@ function Admin() {
                         </small>
                       </div>
                       <div>
-                        <Button 
-                          variant="warning" 
-                          size="sm" 
-                          onClick={() => prepararEditar(idx)}
-                          className="me-1"
-                        >
-                          ✏️ Editar
-                        </Button>
+                        {isAdmin && (
+                          <Button 
+                            variant="warning" 
+                            size="sm" 
+                            onClick={() => prepararEditar(idx)}
+                            className="me-1"
+                          >
+                            ✏️ Editar
+                          </Button>
+                        )}
                         <Button 
                           variant="danger" 
                           size="sm" 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Button, Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
-import { loginRequest, esCuentaAdmin } from '../msalConfig';
+import { loginRequest, obtenerRolCuenta } from '../msalConfig';
 
 function Login() {
   const { instance, accounts, inProgress } = useMsal();
@@ -13,7 +13,7 @@ function Login() {
   const handleLogin = async () => {
     // Si ya hay una cuenta autenticada, no hace falta abrir el flujo de nuevo.
     if (accounts.length > 0) {
-      navigate(esCuentaAdmin(accounts[0]) ? '/admin' : '/');
+      navigate(obtenerRolCuenta(accounts[0]) ? '/admin' : '/');
       return;
     }
 
@@ -41,8 +41,7 @@ function Login() {
   useEffect(() => {
     if (inProgress === 'none') {
       if (accounts.length > 0) {
-        const esAdmin = esCuentaAdmin(accounts[0]);
-        navigate(esAdmin ? '/admin' : '/');
+        navigate(obtenerRolCuenta(accounts[0]) ? '/admin' : '/');
       }
     }
   }, [inProgress, accounts, navigate]);
@@ -115,7 +114,7 @@ function Login() {
 
           <div className="text-center mt-3">
             <Button variant="link" onClick={() => navigate('/')} className="text-decoration-none text-muted">
-              <i className="bi bi-arrow-left me-1"></i>Volver al inicio
+              <i className="bi bi-person me-1"></i>Ingresar como invitado
             </Button>
           </div>
         </div>

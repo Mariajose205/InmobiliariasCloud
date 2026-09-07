@@ -30,7 +30,35 @@
    - Copia el **Microsoft Graph API endpoint** o usa este formato:
    - `https://login.microsoftonline.com/TU_TENANT_ID`
 
-### 4. Configurar el archivo .env
+### 4. Exponer la API (Expose an API) y crear el scope `access_as_user`
+
+El backend Spring actúa como **Resource Server**: debe recibir un `access token`
+cuya **audiencia** sea nuestra API. Para lograrlo, la misma app registrada (o una
+app separada dedicada a la API) debe exponer un scope:
+
+1. En **App registrations** → tu app → **Expose an API**
+2. En **Application ID URI**, haz clic en **Set** y usa:
+   ```
+   api://f345fdc4-1687-49d0-b0cc-e0d45eb85731
+   ```
+3. En **Scopes defined by this API**, haz clic en **Add a scope**
+   - **Scope name**: `access_as_user`
+   - **Who can consent?**: Admins and users
+   - **Admin consent display name**: `Inmobiliaria Duroc: Acceso de usuarios`
+   - **Admin consent description**: `Permite que un usuario use la app con su identidad`
+   - Habilita **State**: `Enabled`
+   - Haz clic en **Add scope**
+4. El scope completo queda como:
+   ```
+   api://f345fdc4-1687-49d0-b0cc-e0d45eb85731/access_as_user
+   ```
+5. (Opcional pero recomendado) En **Authorized client applications** agrega el
+   `client-id` de la SPA para que el consentimiento sea de un solo clic.
+
+> Con esto, Entra ID emite **access tokens v2.0** con `aud` =
+> `api://{client-id}` y `scp` = `access_as_user`.
+
+### 5. Configurar el archivo .env
 
 Crea un archivo `.env` en la raíz del proyecto con las siguientes variables:
 
@@ -38,22 +66,69 @@ Crea un archivo `.env` en la raíz del proyecto con las siguientes variables:
 VITE_AZURE_CLIENT_ID=tu_client_id_aqui
 VITE_AZURE_AUTHORITY=https://login.microsoftonline.com/tu_tenant_id
 VITE_AZURE_REDIRECT_URI=http://localhost:5173
+VITE_AZURE_API_SCOPE=api://tu_client_id_aqui/access_as_user
+VITE_API_BASE_URL=
 ```
 
 **Importante**: Reemplaza los valores con los que obtuviste de Azure Portal.
+`VITE_API_BASE_URL` vacío usa el proxy del dev server de Vite (api → 8080).
 
-### 5. Configurar permisos (opcional)
+### 6. Configurar el backend (api-gateway)
 
-Si necesitas acceder a información del usuario desde Microsoft Graph API:
+En `backend/api-gateway/src/main/resources/application.yml`:
 
-1. En tu aplicación registrada, ve a **API permissions**
-2. Haz clic en **Add a permission**
-3. Selecciona **Microsoft Graph**
-4. Selecciona **Delegated permissions**
-5. Busca y selecciona los permisos que necesitas (ej: `User.Read`)
-6. Haz clic en **Add permissions**
+```yaml
+azure:
+  tenant-id: "TU_TENANT_ID"
+  client-id: "TU_CLIENT_ID"
+  admin-email: "administrador@inmobiliariaduoc.onmicrosoft.com"
+  app-id-uri: "api://TU_CLIENT_ID"
+  scope: "access_as_user"
+  audiences: "api://TU_CLIENT_ID,TU_CLIENT_ID"
+```
 
-### 6. Reiniciar el servidor
+Spring valida `iss` (issuer-uri del tenant) y `aud` (acepta el App ID URI
+`api://...` y/o el GUID del client-id). Además exige el claim `scp` =
+`access_as_user`, por lo que el **ID Token** y el **access token de Graph** ya
+no sirven para las rutas privadas:
+- ID Token: `aud` = client-id de la SPA y **no trae `scp`** → rechazado.
+- Token de Graph: `aud` = `https://graph.microsoft.com` y `scp` = `User.Read` → rechazado.
+- Access token de nuestra API: `aud` = `api://{client-id}`, `scp` = `access_as_user` → aceptado.
+
+### 7. Configurar los roles de usuario (admin y corredor)
+
+El sistema distingue dos roles internos (sin necesidad de grupos en Entra):
+
+- **ADMIN** (`administrador@inmobiliariaduoc.onmicrosoft.com`): puede crear,
+  editar y eliminar propiedades.
+- **CORREDOR** (`Corredor@InmobiliariaDuoc.onmicrosoft.com`): puede **publicar
+  (POST)** y **eliminar (DELETE)** propiedades, pero **NO editar (PUT)**.
+
+Los roles se configuran en `backend/api-gateway/src/main/resources/application.yml`:
+
+```yaml
+azure:
+  tenant-id: "680da6eb-42e0-4147-bda4-8c06e4819411"
+  client-id: "f345fdc4-1687-49d0-b0cc-e0d45eb85731"
+  admin-email: "administrador@inmobiliariaduoc.onmicrosoft.com"
+  admin-object-id: ""   # opcional, ver abajo
+  corredor-email: "Corredor@InmobiliariaDuoc.onmicrosoft.com"
+  corredor-object-id: "0a73de94-2722-4221-836c-bd7f3af16980"
+  app-id-uri: "api://f345fdc4-1687-49d0-b0cc-e0d45eb85731"
+  scope: "access_as_user"
+  audiences: "api://f345fdc4-1687-49d0-b0cc-e0d45eb85731,f345fdc4-1687-49d0-b0cc-e0d45eb85731"
+```
+
+> **Importante sobre el `oid` (object-id):** los access tokens de Entra **no
+> incluyen `email` ni `preferred_username` por defecto**. Para que la
+> identificación por email funcione hay que añadir **optional claims**
+> (`email`, `preferred_username`) al access token en **Token configuration →
+> Add optional claim → Access token**. Mientras tanto, los roles se resuelven
+> de forma confiable por **object-id** (`oid`), que sí está siempre presente.
+> Para cambiar de usuario/revisar su `oid`: **Entra ID → Users → clic en el
+> usuario → copiar Object ID**.
+
+### 8. Reiniciar el servidor
 
 Después de crear/modificar el archivo `.env`, reinicia el servidor de desarrollo:
 

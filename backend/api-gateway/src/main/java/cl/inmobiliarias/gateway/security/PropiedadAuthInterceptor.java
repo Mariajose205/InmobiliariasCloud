@@ -2,7 +2,6 @@ package cl.inmobiliarias.gateway.security;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -12,29 +11,26 @@ import java.io.IOException;
 /**
  * Interceptor del API Gateway.
  *
- * - Las rutas de LECTURA (GET) son publicas: cualquiera puede ver el catalogo.
- * - Las rutas de MODIFICACION (POST/PUT/DELETE) requieren un token JWT valido
- *   que corresponda al administrador. Se aceptan dos fuentes de identidad:
- *     a) Un token emitido por Azure Entra ID (validado por {@link AzureTokenValidator}):
- *        es administrador si el email del token coincide con el email admin configurado.
- *     b) Un token propio del gateway (JwtUtil): es administrador si el rol es ADMIN.
- *   Si no hay token valido, o el usuario no es admin, se rechaza.
+ * - Las rutas de LECTURA (GET/OPTIONS) son publicas: cualquiera puede ver el catalogo.
+ * - Las rutas de MODIFICACION requieren un token valido. Segun el metodo:
+ *     a) Un token emitido por Azure Entra ID (validado por {@link AzureAutorizacion})
+ *        que corresponda a un rol con permiso:
+ *           - ADMIN  : puede CREAR (POST), EDITAR (PUT) y ELIMINAR (DELETE).
+ *           - CORREDOR: puede CREAR (POST) y ELIMINAR (DELETE), pero NO editar (PUT).
+ *     b) Un token propio del gateway (JwtUtil) con rol ADMIN.
+ *   Si no hay token valido, o el usuario no tiene el rol que exige el metodo,
+ *   se rechaza.
  */
 @Component
 public class PropiedadAuthInterceptor implements HandlerInterceptor {
 
-    public static final String ROL_ADMIN = "ADMIN";
-
     private final JwtUtil jwtUtil;
-    private final AzureTokenValidator azureTokenValidator;
-    private final String azureAdminEmail;
+    private final AzureAutorizacion azureAutorizacion;
 
     public PropiedadAuthInterceptor(JwtUtil jwtUtil,
-                                    AzureTokenValidator azureTokenValidator,
-                                    @Value("${azure.admin-email}") String azureAdminEmail) {
+                                    AzureAutorizacion azureAutorizacion) {
         this.jwtUtil = jwtUtil;
-        this.azureTokenValidator = azureTokenValidator;
-        this.azureAdminEmail = azureAdminEmail;
+        this.azureAutorizacion = azureAutorizacion;
     }
 
     @Override
@@ -53,7 +49,7 @@ public class PropiedadAuthInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        // Modificacion o cualquier otro metodo: requiere token de administrador.
+        // Modificacion o cualquier otro metodo: requiere token con rol.
         String header = request.getHeader("Authorization");
         if (header == null || !header.startsWith("Bearer ")) {
             return rechazar(response, HttpStatus.UNAUTHORIZED.value(),
@@ -62,44 +58,47 @@ public class PropiedadAuthInterceptor implements HandlerInterceptor {
 
         String token = header.substring(7);
 
-        // 1) Token propio del gateway (JWT local HS256).
-        if (esAdminPorTokenPropio(token)) {
+        AzureAutorizacion.Resultado azure = azureAutorizacion.evaluar(token);
+        String rolLocal = rolDeTokenPropio(token);
+
+        String rol = rolLocal != null ? rolLocal : (azure != null ? azure.rol() : null);
+        if (rol == null) {
+            // 401 si no hay token valido; 403 si el token es valido pero el
+            // usuario no tiene rol (PUBLIC).
+            boolean valido = azure != null || rolLocal != null;
+            return rechazar(response, valido ? HttpStatus.FORBIDDEN.value()
+                            : HttpStatus.UNAUTHORIZED.value(),
+                    valido
+                            ? "{\"error\":\"Acceso denegado: el usuario no tiene permisos para esta operacion.\"}"
+                            : "{\"error\":\"Token invalido o expirado.\"}");
+        }
+
+        if (AzureAutorizacion.ROL_ADMIN.equalsIgnoreCase(rol)) {
             return true;
         }
 
-        // 2) Token de Azure Entra ID.
-        AzureTokenValidator.AzureUser azureUser = azureTokenValidator.validate(token);
-        if (azureUser.valid() && azureAdminEmail != null
-                && azureAdminEmail.equalsIgnoreCase(azureUser.email())) {
-            return true;
+        if (AzureAutorizacion.ROL_CORREDOR.equalsIgnoreCase(rol)) {
+            // El corredor publica (POST) y elimina (DELETE), pero no edita (PUT).
+            if ("POST".equalsIgnoreCase(method) || "DELETE".equalsIgnoreCase(method)) {
+                return true;
+            }
+            return rechazar(response, HttpStatus.FORBIDDEN.value(),
+                    "{\"error\":\"El usuario corredor solo puede publicar y eliminar propiedades, no editarlas.\"}");
         }
 
-        // Enviar 401 si el token es invalido, 403 si es valido pero no es admin.
-        boolean hayTokenValido = azureUser.valid() || esTokenPropioValido(token);
-        return rechazar(response, hayTokenValido ? HttpStatus.FORBIDDEN.value()
-                        : HttpStatus.UNAUTHORIZED.value(),
-                hayTokenValido
-                        ? "{\"error\":\"Acceso denegado: solo un administrador puede modificar propiedades.\"}"
-                        : "{\"error\":\"Token invalido o expirado.\"}");
+        return rechazar(response, HttpStatus.FORBIDDEN.value(),
+                "{\"error\":\"Acceso denegado: el usuario no tiene permisos para esta operacion.\"}");
     }
 
-    private boolean esAdminPorTokenPropio(String token) {
+    private String rolDeTokenPropio(String token) {
         try {
             if (jwtUtil.esValido(token)) {
-                return ROL_ADMIN.equalsIgnoreCase(jwtUtil.getRol(token));
+                return jwtUtil.getRol(token);
             }
         } catch (Exception ignored) {
             // continua con Azure
         }
-        return false;
-    }
-
-    private boolean esTokenPropioValido(String token) {
-        try {
-            return jwtUtil.esValido(token);
-        } catch (Exception ignored) {
-            return false;
-        }
+        return null;
     }
 
     private boolean rechazar(HttpServletResponse response, int status, String body) throws IOException {
