@@ -1,0 +1,59 @@
+name: Backend - Build & Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+
+concurrency:
+  group: backend
+  cancel-in-progress: true
+
+jobs:
+  build-push:
+    name: Build y push de imagenes backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v4
+
+      - name: Login a Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build y push api-gateway
+        uses: docker/build-push-action@v6
+        with:
+          context: backend/api-gateway
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_HUB_USERNAME }}/api-gateway:latest
+            ${{ secrets.DOCKER_HUB_USERNAME }}/api-gateway:${{ github.sha }}
+
+      - name: Build y push inmobiliaria-service
+        uses: docker/build-push-action@v6
+        with:
+          context: backend/inmobiliaria-service
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_HUB_USERNAME }}/inmobiliaria-service:latest
+            ${{ secrets.DOCKER_HUB_USERNAME }}/inmobiliaria-service:${{ github.sha }}
+
+      - name: Disparar deploy en el repo de infraestructura
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          DEPLOY_REPO: ${{ secrets.DEPLOY_REPO }}
+        run: |
+          curl -s -X POST \
+            -H "Authorization: token $GH_PAT" \
+            -H "Accept: application/vnd.github.everest+json" \
+            "https://api.github.com/repos/$DEPLOY_REPO/dispatches" \
+            -d '{"event_type":"deploy-backend"}'
+          echo "Deploy backend disparado en $DEPLOY_REPO"

@@ -12,6 +12,7 @@ import java.io.IOException;
  * Interceptor del API Gateway.
  *
  * - Las rutas de LECTURA (GET/OPTIONS) son publicas: cualquiera puede ver el catalogo.
+ * - La ruta /api/auditoria es de SOLO ADMIN: exige un token con rol ADMIN.
  * - Las rutas de MODIFICACION requieren un token valido. Segun el metodo:
  *     a) Un token emitido por Azure Entra ID (validado por {@link AzureAutorizacion})
  *        que corresponda a un rol con permiso:
@@ -20,9 +21,16 @@ import java.io.IOException;
  *     b) Un token propio del gateway (JwtUtil) con rol ADMIN.
  *   Si no hay token valido, o el usuario no tiene el rol que exige el metodo,
  *   se rechaza.
+ *
+ * Ademas, cuando el usuario pasa la autorizacion, guarda el email/rol en los
+ * atributos de la peticion (x-user, x-user-rol) para que el proxy los reenvie
+ * al microservicio y este registre en la auditoria quien realizo la accion.
  */
 @Component
 public class PropiedadAuthInterceptor implements HandlerInterceptor {
+
+    public static final String ATTR_USER = "x-user";
+    public static final String ATTR_USER_ROL = "x-user-rol";
 
     private final JwtUtil jwtUtil;
     private final AzureAutorizacion azureAutorizacion;
@@ -44,12 +52,19 @@ public class PropiedadAuthInterceptor implements HandlerInterceptor {
 
         String method = request.getMethod();
 
-        // Lectura: publica, no requiere auth.
-        if ("GET".equalsIgnoreCase(method) || "OPTIONS".equalsIgnoreCase(method)) {
+        // Preflight CORS: siempre permitido.
+        if ("OPTIONS".equalsIgnoreCase(method)) {
             return true;
         }
 
-        // Modificacion o cualquier otro metodo: requiere token con rol.
+        boolean esAuditoria = request.getRequestURI().startsWith("/api/auditoria");
+
+        // Lectura publica del catalogo: no requiere auth.
+        if (!esAuditoria && "GET".equalsIgnoreCase(method)) {
+            return true;
+        }
+
+        // Auditoria y modificaciones: requieren token con rol.
         String header = request.getHeader("Authorization");
         if (header == null || !header.startsWith("Bearer ")) {
             return rechazar(response, HttpStatus.UNAUTHORIZED.value(),
@@ -73,13 +88,25 @@ public class PropiedadAuthInterceptor implements HandlerInterceptor {
                             : "{\"error\":\"Token invalido o expirado.\"}");
         }
 
+        // La auditoria es exclusiva del ADMIN.
+        if (esAuditoria) {
+            if (AzureAutorizacion.ROL_ADMIN.equalsIgnoreCase(rol)) {
+                guardarUsuario(request, azure, rolLocal, token, rol);
+                return true;
+            }
+            return rechazar(response, HttpStatus.FORBIDDEN.value(),
+                    "{\"error\":\"Solo el administrador puede ver la auditoria.\"}");
+        }
+
         if (AzureAutorizacion.ROL_ADMIN.equalsIgnoreCase(rol)) {
+            guardarUsuario(request, azure, rolLocal, token, rol);
             return true;
         }
 
         if (AzureAutorizacion.ROL_CORREDOR.equalsIgnoreCase(rol)) {
             // El corredor publica (POST) y elimina (DELETE), pero no edita (PUT).
             if ("POST".equalsIgnoreCase(method) || "DELETE".equalsIgnoreCase(method)) {
+                guardarUsuario(request, azure, rolLocal, token, rol);
                 return true;
             }
             return rechazar(response, HttpStatus.FORBIDDEN.value(),
@@ -88,6 +115,29 @@ public class PropiedadAuthInterceptor implements HandlerInterceptor {
 
         return rechazar(response, HttpStatus.FORBIDDEN.value(),
                 "{\"error\":\"Acceso denegado: el usuario no tiene permisos para esta operacion.\"}");
+    }
+
+    /**
+     * Guarda la identidad del usuario autenticado en los atributos de la
+     * peticion para que el proxy la reenvie al microservicio (auditoria).
+     */
+    private void guardarUsuario(HttpServletRequest request,
+                                AzureAutorizacion.Resultado azure,
+                                String rolLocal,
+                                String token,
+                                String rol) {
+        String usuario = null;
+        if (azure != null) {
+            usuario = azure.usuario().email();
+            if (usuario == null || usuario.isBlank()) {
+                usuario = azure.usuario().objectId();
+            }
+        }
+        if (rolLocal != null) {
+            usuario = jwtUtil.getSubject(token);
+        }
+        request.setAttribute(ATTR_USER, usuario != null ? usuario : "desconocido");
+        request.setAttribute(ATTR_USER_ROL, rol != null ? rol : "");
     }
 
     private String rolDeTokenPropio(String token) {

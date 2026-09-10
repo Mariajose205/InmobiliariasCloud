@@ -5,6 +5,7 @@ import { msalInstance } from './msalConfig'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Admin from './pages/Admin'
+import Dashboard from './pages/Dashboard'
 import './App.css'
 
 // Consume la ruta post-login guardada tras un inicio de sesion por
@@ -33,6 +34,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/admin/dashboard" element={<Dashboard />} />
           </Routes>
         </div>
       </Router>

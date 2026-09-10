@@ -265,6 +265,11 @@ function Admin() {
         <h2>🏢 Gestión de Catálogo de Propiedades</h2>
         <div className="d-flex align-items-center gap-2">
           <Badge bg={isAdmin ? 'primary' : 'info'}>{isAdmin ? 'Administrador' : 'Corredor'}</Badge>
+          {isAdmin && (
+            <Button variant="success" size="sm" onClick={() => navigate('/admin/dashboard')}>
+              <i className="bi bi-bar-chart-line-fill me-1"></i>Dashboard
+            </Button>
+          )}
           <Button variant="outline-primary" size="sm" onClick={() => navigate('/')}>
             <i className="bi bi-house-door me-1"></i>Ver Página Principal
           </Button>

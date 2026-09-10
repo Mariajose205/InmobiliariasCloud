@@ -1,0 +1,89 @@
+# Despliegue del backend (api-gateway + inmobiliaria-service + base de datos)
+# en un EC2 usando imagenes desde Docker Hub.
+#
+# Requiere un archivo .env en esta misma carpeta con las variables:
+#   POSTGRES_DB=inmobiliarias
+#   POSTGRES_USER=<usuario de la base>
+#   POSTGRES_PASSWORD=<password de la base>
+#   JWT_SECRET=<clave larga >= 32 caracteres>
+#   ADMIN_PASSWORD=<password del admin del gateway>
+#
+# En tu PC (construir y subir imagenes a Docker Hub):
+#   docker compose build
+#   docker compose push
+#
+# En el EC2 (descargar y levantar):
+#   docker compose pull
+#   docker compose up -d
+#
+# Nota: la base de datos PostgreSQL corre dentro del mismo EC2 (servicio "db")
+# con un volumen Docker para persistir los datos entre reinicios. Las tablas se
+# crean automaticamente la primera vez (ddl-auto: update) y DataSeeder inserta
+# las propiedades demo. No requiere permisos RDS en AWS.
+services:
+
+  # PostgreSQL persistente (reemplaza a Amazon RDS).
+  db:
+    image: postgres:16-alpine
+    container_name: inmobiliarias-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: America/Santiago
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - inmob-red
+
+  inmobiliaria-service:
+    build: ./inmobiliaria-service
+    image: mariacarrero/inmobiliaria-service:latest
+    container_name: inmobiliaria-service
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      # Dentro de la red docker, la base de datos se llama por su nombre.
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: America/Santiago
+    expose:
+      - "8081"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - inmob-red
+
+  api-gateway:
+    build: ./api-gateway
+    image: mariacarrero/api-gateway:latest
+    container_name: api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      # Dentro de la red docker, el microservicio se llama por su nombre.
+      BACKEND_URL: http://inmobiliaria-service:8081
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      TZ: America/Santiago
+    depends_on:
+      - inmobiliaria-service
+    networks:
+      - inmob-red
+
+networks:
+  inmob-red:
+    driver: bridge
+
+volumes:
+  pgdata:

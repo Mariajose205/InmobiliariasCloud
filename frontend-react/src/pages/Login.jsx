@@ -68,7 +68,7 @@ function Login() {
         }}>
           <div className="text-center mb-4">
             <i className="bi bi-house-door-fill" style={{ fontSize: '4rem', color: '#f08800' }}></i>
-            <h3 className="mt-3 fw-bold">Inmobiliarias Duroc</h3>
+            <h3 className="mt-3 fw-bold">Inmobiliarias Duoc</h3>
             <p className="mb-0 text-muted">Inicia sesión con tu cuenta de Microsoft</p>
           </div>
 

@@ -22,14 +22,6 @@ const Navbar = () => {
     window.location.href = '/login';
   };
 
-  const handleForceLogout = () => {
-    limpiarSesion();
-    localStorage.clear();
-    sessionStorage.clear();
-    instance.logoutPopup({ postLogoutRedirectUri: '/login' });
-    window.location.href = '/login';
-  };
-
   const isAdmin = obtenerRolCuenta(accounts[0]) === 'admin';
   const isCorredor = obtenerRolCuenta(accounts[0]) === 'corredor';
   const puedeUsarPanel = isAdmin || isCorredor;
@@ -60,6 +52,13 @@ const Navbar = () => {
                 </Nav.Link>
               </Nav.Item>
             )}
+            {isAdmin && (
+              <Nav.Item>
+                <Nav.Link as={Link} to="/admin/dashboard">
+                  <i className="bi bi-bar-chart-line-fill me-1"></i>Dashboard
+                </Nav.Link>
+              </Nav.Item>
+            )}
             <Nav.Item id="authSection" className="ms-2">
               {isLoggedIn ? (
                 <>
@@ -70,14 +69,6 @@ const Navbar = () => {
                     className="ms-2"
                   >
                     <i className="bi bi-box-arrow-right me-1"></i>Cerrar Sesión
-                  </Button>
-                  <Button 
-                    variant="warning" 
-                    size="sm" 
-                    onClick={handleForceLogout}
-                    className="ms-2"
-                  >
-                    <i className="bi bi-exclamation-triangle me-1"></i>Forzar Cierre
                   </Button>
                 </>
               ) : (

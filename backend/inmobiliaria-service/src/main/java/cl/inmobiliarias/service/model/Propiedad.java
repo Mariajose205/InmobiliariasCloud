@@ -51,6 +51,7 @@ public class Propiedad {
     private String videoUrl;
 
     @ElementCollection
+    @Column(length = 1000)
     private List<String> imagenes = new ArrayList<>();
 
     public Propiedad() {

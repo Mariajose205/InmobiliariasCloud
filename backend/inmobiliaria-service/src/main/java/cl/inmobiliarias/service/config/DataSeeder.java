@@ -1,19 +1,24 @@
 package cl.inmobiliarias.service.config;
 
+import cl.inmobiliarias.service.model.Auditoria;
 import cl.inmobiliarias.service.model.Propiedad;
+import cl.inmobiliarias.service.repository.AuditoriaRepository;
 import cl.inmobiliarias.service.repository.PropiedadRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
 public class DataSeeder implements CommandLineRunner {
 
     private final PropiedadRepository repository;
+    private final AuditoriaRepository auditoriaRepository;
 
-    public DataSeeder(PropiedadRepository repository) {
+    public DataSeeder(PropiedadRepository repository, AuditoriaRepository auditoriaRepository) {
         this.repository = repository;
+        this.auditoriaRepository = auditoriaRepository;
     }
 
     @Override
@@ -36,5 +41,18 @@ public class DataSeeder implements CommandLineRunner {
                         "/ Valor Total", 0L, "La Dehesa",
                         0, 0, 0, 0, "", List.of("imagenes/Fondo_negro.png"))
         ));
+
+        List<Auditoria> demoAuditoria = List.of(
+                new Auditoria("CREAR", "Departamento Moderno Centro",
+                        "administrador@inmobiliariaduoc.onmicrosoft.com", "ADMIN"),
+                new Auditoria("EDITAR", "Hermosa Casa en Las Condes",
+                        "administrador@inmobiliariaduoc.onmicrosoft.com", "ADMIN"),
+                new Auditoria("CREAR", "Terreno en La Dehesa",
+                        "Corredor@InmobiliariaDuoc.onmicrosoft.com", "CORREDOR")
+        );
+        demoAuditoria.get(0).setFecha(LocalDateTime.now().minusHours(3));
+        demoAuditoria.get(1).setFecha(LocalDateTime.now().minusDays(1));
+        demoAuditoria.get(2).setFecha(LocalDateTime.now().minusDays(2));
+        auditoriaRepository.saveAll(demoAuditoria);
     }
 }

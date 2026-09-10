@@ -1,0 +1,27 @@
+# Perfil de PRODUCCION: usa PostgreSQL y escucha en todas las interfaces del
+# contenedor (el API Gateway lo alcanza por la red docker; el puerto 8081 NO se
+# publica fuera del contenedor, asi que sigue sin ser accesible publicamente).
+# Activar con SPRING_PROFILES_ACTIVE=prod. Los valores sensibles llegan por
+# variables de entorno desde docker-compose.
+server:
+  address: 0.0.0.0
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      # "update" conserva los datos en RDS entre reinicios (a diferencia de
+      # create-drop). En la primera ejecucion se crean las tablas y DataSeeder
+      # inserta las 3 propiedades de ejemplo y la auditoria demo.
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  h2:
+    console:
+      enabled: false

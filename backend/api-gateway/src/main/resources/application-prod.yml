@@ -1,0 +1,17 @@
+# Perfil de PRODUCCION del API Gateway. Activar con SPRING_PROFILES_ACTIVE=prod.
+# Los valores de Azure y seguridad se leen de variables de entorno
+# (verdocker-compose.yml). En local los valores por defecto coinciden con el
+# perfil default, asi el contenedor tambien funciona sin variables.
+gateway:
+  # Dentro de la red docker del compose, el microservicio se resuelve por su
+  # nombre de servicio "inmobiliaria-service" (no por 127.0.0.1).
+  inmobiliaria-service-url: ${BACKEND_URL:http://inmobiliaria-service:8081}
+
+security:
+  jwt:
+    # En produccion cambia esta clave por una secreta y larga via JWT_SECRET.
+    secret: ${JWT_SECRET:CambiaEstaClaveSecretaDeberiaSerSuficientementeLarga123456}
+    expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+  admin:
+    username: ${ADMIN_USERNAME:admin}
+    password: ${ADMIN_PASSWORD:Duoc2026}

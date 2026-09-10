@@ -15,6 +15,9 @@ backend/**/target/
 .env.local
 *.env
 
+# Repositorio de infraestructura (vive en su propio repo de GitHub)
+/Inmobiliarias-Infra/
+
 # IDE
 .idea/
 .vscode/

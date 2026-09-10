@@ -201,4 +201,46 @@ class PropiedadAuthInterceptorTest {
         assertThat(interceptor.preHandle(request("POST", token), res, new Object())).isFalse();
         assertThat(res.getStatus()).isEqualTo(403);
     }
+
+    private MockHttpServletRequest requestAuditoria(String method, String token) {
+        MockHttpServletRequest req = new MockHttpServletRequest(method, "/api/auditoria");
+        if (token != null) {
+            req.addHeader("Authorization", "Bearer " + token);
+        }
+        return req;
+    }
+
+    @Test
+    void rechazaAuditoriaSinToken() throws Exception {
+        MockHttpServletResponse res = new MockHttpServletResponse();
+
+        boolean allowed = interceptor.preHandle(requestAuditoria("GET", null), res, new Object());
+
+        assertThat(allowed).isFalse();
+        assertThat(res.getStatus()).isEqualTo(401);
+    }
+
+    @Test
+    void rechazaAuditoriaConCorredor() throws Exception {
+        String tokenCorredor = jwtUtil.generarToken("corredor", "CORREDOR");
+        MockHttpServletResponse res = new MockHttpServletResponse();
+
+        boolean allowed = interceptor.preHandle(requestAuditoria("GET", tokenCorredor), res, new Object());
+
+        assertThat(allowed).isFalse();
+        assertThat(res.getStatus()).isEqualTo(403);
+    }
+
+    @Test
+    void permiteAuditoriaSoloConAdmin() throws Exception {
+        String tokenAdmin = jwtUtil.generarToken("admin@inmobiliaria.cl", "ADMIN");
+        MockHttpServletRequest req = requestAuditoria("GET", tokenAdmin);
+        MockHttpServletResponse res = new MockHttpServletResponse();
+
+        boolean allowed = interceptor.preHandle(req, res, new Object());
+
+        assertThat(allowed).isTrue();
+        assertThat(req.getAttribute(PropiedadAuthInterceptor.ATTR_USER)).isEqualTo("admin@inmobiliaria.cl");
+        assertThat(req.getAttribute(PropiedadAuthInterceptor.ATTR_USER_ROL)).isEqualTo("ADMIN");
+    }
 }

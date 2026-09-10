@@ -337,3 +337,167 @@ footer p {
     transform: scale(1.02);
     filter: brightness(0.95);
 }
+
+/* ===== DASHBOARD ADMIN ===== */
+.dashboard-page {
+    min-height: 100vh;
+    background-color: #f5f3ea;
+}
+
+.dashboard-page h2 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    color: var(--secondary-color);
+}
+
+.dashboard-page h5 {
+    font-weight: 650;
+    color: var(--secondary-color);
+}
+
+.stat-card {
+    border-radius: 14px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background-color: #ffffff;
+}
+
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10) !important;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: #718096;
+    font-weight: 500;
+}
+
+.stat-value {
+    font-size: 1.9rem;
+    font-weight: 800;
+    color: var(--secondary-color);
+}
+
+.stat-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+}
+
+/* Gráfico de barras con CSS puro */
+.bar-chart {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    height: 240px;
+    padding: 10px 5px 0 5px;
+    gap: 6px;
+}
+
+.bar-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    height: 100%;
+    justify-content: flex-end;
+}
+
+.bar-wrapper {
+    width: 100%;
+    height: 100%;
+    max-width: 42px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 8px 8px 0 0;
+    position: relative;
+}
+
+.bar {
+    width: 100%;
+    border-radius: 6px 6px 0 0;
+    min-height: 6px;
+    transition: opacity 0.2s ease;
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+.bar:hover {
+    opacity: 0.85;
+}
+
+.bar-value {
+    position: absolute;
+    top: -22px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #4a5568;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 1px 5px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    white-space: nowrap;
+}
+
+.bar:hover .bar-value {
+    opacity: 1;
+}
+
+.bar-label {
+    font-size: 0.72rem;
+    color: #718096;
+    margin-top: 6px;
+    font-weight: 600;
+}
+
+/* Lista de actividad */
+.activity-item {
+    padding: 12px 8px;
+    border-bottom: 1px dashed #e2e8f0;
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 5px;
+}
+
+/* Ranking comunas */
+.comuna-rank {
+    width: 32px;
+    height: 32px;
+    background-color: var(--secondary-color);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+    .stat-value {
+        font-size: 1.5rem;
+    }
+
+    .bar-chart {
+        height: 200px;
+    }
+}

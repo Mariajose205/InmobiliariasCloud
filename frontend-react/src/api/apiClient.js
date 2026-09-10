@@ -113,3 +113,11 @@ export function eliminarPropiedad(id) {
 export function obtenerUsuarioActual() {
   return apiFetchAutenticado('/api/me');
 }
+
+/**
+ * Devuelve el registro de auditoria (quien y cuando realizo acciones sobre
+ * las propiedades). Solo el administrador puede consultarla.
+ */
+export function obtenerAuditoria() {
+  return apiFetchAutenticado('/api/auditoria');
+}
