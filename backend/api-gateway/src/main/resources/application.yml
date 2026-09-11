@@ -32,7 +32,7 @@ azure:
   # Identificador alternativo del admin: el claim "oid" de los access tokens
   # SIEMPRE esta presente (a diferencia del email). Si lo configuras aqui, la
   # autorizacion por object-id funciona sin optional claims en el portal.
-  admin-object-id: ""
+  admin-object-id: "5ce11c6e-c796-41eb-b8ed-1872878cd197"
   # Corredor: puede publicar (crear) y eliminar propiedades, pero NO editarlas.
   corredor-email: "Corredor@InmobiliariaDuoc.onmicrosoft.com"
   corredor-object-id: "0a73de94-2722-4221-836c-bd7f3af16980"
