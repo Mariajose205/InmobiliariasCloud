@@ -28,7 +28,7 @@ public class AuditoriaProxyController {
 
     @GetMapping
     public ResponseEntity<?> listar() {
-        return restTemplate.exchange(serviceBaseUrl + "/api/auditoria",
-                HttpMethod.GET, null, Object.class);
+        return ProxyRespuestas.responder(restTemplate.exchange(serviceBaseUrl + "/api/auditoria",
+                HttpMethod.GET, null, Object.class));
     }
 }

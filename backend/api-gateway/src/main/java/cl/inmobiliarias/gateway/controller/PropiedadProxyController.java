@@ -18,9 +18,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Locale;
-import java.util.Set;
-
 import cl.inmobiliarias.gateway.security.PropiedadAuthInterceptor;
 
 /**
@@ -52,12 +49,12 @@ public class PropiedadProxyController {
         if (categoria != null && !categoria.isBlank()) {
             url += "?categoria=" + categoria;
         }
-        return responder(restTemplate.exchange(url, HttpMethod.GET, null, Object.class));
+        return ProxyRespuestas.responder(restTemplate.exchange(url, HttpMethod.GET, null, Object.class));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<?> obtener(@PathVariable Long id) {
-        return responder(restTemplate.exchange(serviceBaseUrl + "/api/propiedades/" + id,
+        return ProxyRespuestas.responder(restTemplate.exchange(serviceBaseUrl + "/api/propiedades/" + id,
                 HttpMethod.GET, null, Object.class));
     }
 
@@ -65,7 +62,7 @@ public class PropiedadProxyController {
     public ResponseEntity<?> crear(@RequestBody Object body, HttpServletRequest httpRequest) {
         HttpHeaders headers = headersConUsuario(httpRequest);
         HttpEntity<Object> entity = new HttpEntity<>(body, headers);
-        return responder(restTemplate.exchange(serviceBaseUrl + "/api/propiedades",
+        return ProxyRespuestas.responder(restTemplate.exchange(serviceBaseUrl + "/api/propiedades",
                 HttpMethod.POST, entity, Object.class));
     }
 
@@ -74,7 +71,7 @@ public class PropiedadProxyController {
                                         HttpServletRequest httpRequest) {
         HttpHeaders headers = headersConUsuario(httpRequest);
         HttpEntity<Object> entity = new HttpEntity<>(body, headers);
-        return responder(restTemplate.exchange(serviceBaseUrl + "/api/propiedades/" + id,
+        return ProxyRespuestas.responder(restTemplate.exchange(serviceBaseUrl + "/api/propiedades/" + id,
                 HttpMethod.PUT, entity, Object.class));
     }
 
@@ -82,35 +79,8 @@ public class PropiedadProxyController {
     public ResponseEntity<?> eliminar(@PathVariable Long id, HttpServletRequest httpRequest) {
         HttpHeaders headers = headersConUsuario(httpRequest);
         HttpEntity<Object> entity = new HttpEntity<>(headers);
-        return responder(restTemplate.exchange(serviceBaseUrl + "/api/propiedades/" + id,
+        return ProxyRespuestas.responder(restTemplate.exchange(serviceBaseUrl + "/api/propiedades/" + id,
                 HttpMethod.DELETE, entity, Object.class));
-    }
-
-    /**
-     * Cabeceras "hop-by-hop" (RFC 7230 §6.1) que un proxy NUNCA debe reenviar:
-     * si se copiaran tal cual (p.ej. Transfer-Encoding: chunked del microservicio),
-     * Tomcat anadiria su propia cabecera de enmarcado al responder y el cliente
-     * (ngin x) veria dos Transfer-Encoding -> 502 "duplicate header line".
-     */
-    private static final Set<String> HOP_BY_HOP = Set.of(
-            "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
-            "te", "trailer", "transfer-encoding", "upgrade");
-
-    /**
-     * Envia al cliente la respuesta del microservicio SIN las cabeceras
-     * hop-by-hop. El cuerpo y el status se conservan tal cual.
-     */
-    private ResponseEntity<?> responder(ResponseEntity<?> respuesta) {
-        HttpHeaders limpias = new HttpHeaders();
-        respuesta.getHeaders().forEach((nombre, valores) -> {
-            if (!HOP_BY_HOP.contains(nombre.toLowerCase(Locale.ROOT))) {
-                limpias.put(nombre, valores);
-            }
-        });
-        HttpStatus status = HttpStatus.resolve(respuesta.getStatusCode().value());
-        return status != null
-                ? ResponseEntity.status(status).headers(limpias).body(respuesta.getBody())
-                : ResponseEntity.status(respuesta.getStatusCode().value()).headers(limpias).body(respuesta.getBody());
     }
 
     /**
