@@ -30,7 +30,8 @@ public class WebConfig implements WebMvcConfigurer {
         // las peticiones son mismo-origen, pero el CORS tambien soporta el uso
         // de una base URL absoluta.
         registry.addMapping("/api/**")
-                .allowedOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+                .allowedOrigins("http://localhost:5173", "http://127.0.0.1:5173",
+                        "https://inmobiliariasduoc.duckdns.org")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .exposedHeaders("Authorization")
