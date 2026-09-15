@@ -1,9 +1,11 @@
 import { PublicClientApplication } from '@azure/msal-browser';
 
-// Configuración de Azure Entra ID (desde .env, con respaldo hardcodeado).
+// Configuración de Azure Entra ID (desde .env, con respaldo hardcodeado al
+// dominio de producción). Debe coincidir EXACTAMENTE con el Redirect URI
+// registrado en Azure Portal.
 const VITE_AZURE_CLIENT_ID = import.meta.env.VITE_AZURE_CLIENT_ID || 'f345fdc4-1687-49d0-b0cc-e0d45eb85731';
 const VITE_AZURE_AUTHORITY = import.meta.env.VITE_AZURE_AUTHORITY || 'https://login.microsoftonline.com/680da6eb-42e0-4147-bda4-8c06e4819411';
-const VITE_AZURE_REDIRECT_URI = import.meta.env.VITE_AZURE_REDIRECT_URI || 'http://localhost:5173';
+const VITE_AZURE_REDIRECT_URI = import.meta.env.VITE_AZURE_REDIRECT_URI || 'https://inmobiliariasduoc.duckdns.org/';
 
 // Scope delegado de NUESTRA API (Expose an API -> api://{client-id}/access_as_user).
 // Con este scope Entra ID emite un ACCESS TOKEN cuya audiencia es la API, no

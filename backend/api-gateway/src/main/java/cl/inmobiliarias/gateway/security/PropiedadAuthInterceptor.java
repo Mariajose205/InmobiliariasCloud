@@ -8,6 +8,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.io.IOException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Interceptor del API Gateway.
  *
@@ -31,6 +34,8 @@ public class PropiedadAuthInterceptor implements HandlerInterceptor {
 
     public static final String ATTR_USER = "x-user";
     public static final String ATTR_USER_ROL = "x-user-rol";
+
+    private static final Logger log = LoggerFactory.getLogger(PropiedadAuthInterceptor.class);
 
     private final JwtUtil jwtUtil;
     private final AzureAutorizacion azureAutorizacion;
@@ -77,6 +82,8 @@ public class PropiedadAuthInterceptor implements HandlerInterceptor {
         String rolLocal = rolDeTokenPropio(token);
 
         String rol = rolLocal != null ? rolLocal : (azure != null ? azure.rol() : null);
+        log.info("[Auth] {} {} rol={} azureValid={}", method, request.getRequestURI(), rol,
+                azure != null && azure.usuario().valid());
         if (rol == null) {
             // 401 si no hay token valido; 403 si el token es valido pero el
             // usuario no tiene rol (PUBLIC).
@@ -152,6 +159,7 @@ public class PropiedadAuthInterceptor implements HandlerInterceptor {
     }
 
     private boolean rechazar(HttpServletResponse response, int status, String body) throws IOException {
+        log.info("[Auth] RECHAZADO {} status={} body={}", response.getStatus(), status, body);
         response.setStatus(status);
         response.setContentType("application/json");
         response.getWriter().write(body);

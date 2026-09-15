@@ -16,7 +16,7 @@
 2. **Supported account types**: Selecciona "Accounts in any organizational directory and personal Microsoft accounts" si quieres permitir acceso a cualquier usuario, o "Accounts in this organizational directory only" para solo tu organización
 3. **Redirect URI (optional)**:
    - Selecciona **Web**
-   - URI: `http://localhost:5173`
+   - URI: `https://inmobiliariasduoc.duckdns.org/`
 4. Haz clic en **Register**
 
 ### 3. Obtener las credenciales
@@ -65,13 +65,16 @@ Crea un archivo `.env` en la raíz del proyecto con las siguientes variables:
 ```env
 VITE_AZURE_CLIENT_ID=tu_client_id_aqui
 VITE_AZURE_AUTHORITY=https://login.microsoftonline.com/tu_tenant_id
-VITE_AZURE_REDIRECT_URI=http://localhost:5173
+VITE_AZURE_REDIRECT_URI=https://inmobiliariasduoc.duckdns.org/
 VITE_AZURE_API_SCOPE=api://tu_client_id_aqui/access_as_user
-VITE_API_BASE_URL=
+VITE_API_BASE_URL=https://inmobiliariasduoc.duckdns.org
 ```
 
 **Importante**: Reemplaza los valores con los que obtuviste de Azure Portal.
-`VITE_API_BASE_URL` vacío usa el proxy del dev server de Vite (api → 8080).
+`VITE_AZURE_REDIRECT_URI` debe coincidir EXACTAMENTE (incluida la barra final,
+si así lo registraste) con el Redirect URI de Azure. `VITE_API_BASE_URL` apunta
+directamente al dominio de producción (las llamadas /api las proxya nginx al
+gateway).
 
 ### 6. Configurar el backend (api-gateway)
 
@@ -160,8 +163,16 @@ npm run dev
 
 ## Para producción
 
-Cuando despliegues a producción:
+El proyecto ya apunta SOLO a producción (`https://inmobiliariasduoc.duckdns.org/`):
 
-1. Agrega la URL de producción como Redirect URI en Azure Portal
-2. Actualiza `VITE_AZURE_REDIRECT_URI` en tu archivo `.env.production`
-3. Considera usar `loginRedirect` en lugar de `loginPopup` para una mejor experiencia móvil
+1. Este dominio debe estar registrado como **Redirect URI** en Azure Portal
+   (App registrations → Authentication → Add a platform → Web). Sin la barra
+   final, agrega también `https://inmobiliariasduoc.duckdns.org`.
+2. `VITE_AZURE_REDIRECT_URI` y `VITE_API_BASE_URL` deben apuntar a ese dominio
+   (ya configurado en `.env`, `.env.production` y como fallback en el código).
+3. En el CI/CD (GitHub Actions → repo settings → Variables), los valores
+   `VITE_AZURE_REDIRECT_URI` y `VITE_API_BASE_URL` deben estar seteados al
+   dominio para que el build de Docker los inyecte (los build-args del
+   workflow sobreescriben los `.env`).
+4. Nginx del frontend proxya `/api` al gateway, por lo que no hay CORS en
+   producción.

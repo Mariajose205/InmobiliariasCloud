@@ -25,13 +25,11 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        // Permite que la SPA en desarrollo (Vite, puerto 5173) llame al gateway
-        // directamente (http://localhost:8080/api/...). Con el proxy de Vite
-        // las peticiones son mismo-origen, pero el CORS tambien soporta el uso
-        // de una base URL absoluta.
+        // Solo se permite el origen de produccion. El frontend y el gateway se
+        // sirven detras del mismo dominio DuckDNS (nginx proxya /api -> gateway),
+        // por lo que en la practica las peticiones son mismo-origen.
         registry.addMapping("/api/**")
-                .allowedOrigins("http://localhost:5173", "http://127.0.0.1:5173",
-                        "https://inmobiliariasduoc.duckdns.org")
+                .allowedOrigins("https://inmobiliariasduoc.duckdns.org")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .exposedHeaders("Authorization")

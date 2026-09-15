@@ -1,8 +1,8 @@
 import { msalInstance, API_SCOPE } from '../msalConfig';
 
-// Base URL del API Gateway. Vacía en desarrollo: el proxy de Vite redirige
-// /api -> http://localhost:8080. En producción apunta al dominio del gateway.
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+// Base URL del API Gateway. Apunta siempre al dominio de produccion
+// (configurado via VITE_API_BASE_URL en .env / build-args de Docker).
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://inmobiliariasduoc.duckdns.org').replace(/\/+$/, '');
 
 const API_SCOPE_LIST = [API_SCOPE];
 
