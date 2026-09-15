@@ -37,7 +37,7 @@ body {
 
 /* HERO SECTION */
 .hero-section {
-    background-image: linear-gradient(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.35)), url('imagenes/Habitacion_fondo.png');
+    background-image: linear-gradient(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.35)), url('/imagenes/Habitacion_fondo.png');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -162,7 +162,7 @@ h2.text-center {
 
 /* FOOTER CON LA IMAGEN DE FONDO */
 footer {
-    background-image: url('imagenes/Fondo_negro.png');
+    background-image: url('/imagenes/Fondo_negro.png');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
