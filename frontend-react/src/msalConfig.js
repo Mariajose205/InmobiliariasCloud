@@ -19,6 +19,11 @@ export const ADMIN_EMAIL = 'administrador@inmobiliariaduoc.onmicrosoft.com';
 // Configuración del corredor (puede publicar y eliminar, pero no editar)
 export const CORREDOR_EMAIL = 'Corredor@InmobiliariaDuoc.onmicrosoft.com';
 
+// Invitado de ejemplo (profesor): solo ve la pagina principal como publico.
+// Cualquier cuenta valida de Entra que no sea admin ni corredor se trata
+// igual: rol nulo (invitado).
+export const PROFESOR_EMAIL = 'profesor@InmobiliariaDuoc.onmicrosoft.com';
+
 // Determina si una cuenta de MSAL corresponde al administrador.
 // La comparacion es insensible a mayusculas/minusculas porque Azure puede
 // devolver el email con distinta capitalizacion segun el usuario que ingresa.
@@ -35,12 +40,25 @@ export const esCuentaCorredor = (cuenta) => {
   return email === CORREDOR_EMAIL.toLowerCase();
 };
 
-// Devuelve 'admin', 'corredor' o null según la cuenta de MSAL.
+// Determina si una cuenta de MSAL es un invitado (profesor u otro usuario sin
+// rol): se le deja SOLO en la pagina principal, como un visitante publico.
+export const esCuentaInvitado = (cuenta) => {
+  if (!cuenta) return false;
+  return !esCuentaAdmin(cuenta) && !esCuentaCorredor(cuenta);
+};
+
+// Devuelve 'admin', 'corredor' o null según la cuenta de MSAL. null implica
+// invitado (solo pagina principal, igual que no haber iniciado sesion).
 export const obtenerRolCuenta = (cuenta) => {
   if (esCuentaAdmin(cuenta)) return 'admin';
   if (esCuentaCorredor(cuenta)) return 'corredor';
   return null;
 };
+
+// Destino tras el login: SOLO admin y corredor van al panel interno; el resto
+// (profesor/invitado) se queda en la pagina principal.
+export const destinoPostLogin = (cuenta) =>
+  (obtenerRolCuenta(cuenta) === 'admin' || obtenerRolCuenta(cuenta) === 'corredor') ? '/admin' : '/';
 
 // Obtiene la cuenta activa (si existe) y devuelve si es administrador.
 export const obtenerEstadoAdmin = (accounts) => {

@@ -36,6 +36,9 @@ azure:
   # Corredor: puede publicar (crear) y eliminar propiedades, pero NO editarlas.
   corredor-email: "Corredor@InmobiliariaDuoc.onmicrosoft.com"
   corredor-object-id: "0a73de94-2722-4221-836c-bd7f3af16980"
+  # Cualquier otro usuario valido de Entra (ej: profesor@InmobiliariaDuoc
+  # .onmicrosoft.com) obtiene rol PUBLIC (invitado): solo lectura del catalogo.
+  # Para invitarlo con mas privilegios, agrega su email/oid como admin o corredor.
   # URI del JWKS. Si se deja vacia, se deduce de tenant-id.
   jwks-uri: "https://login.microsoftonline.com/680da6eb-42e0-4147-bda4-8c06e4819411/discovery/v2.0/keys"
   # App ID URI que se configura en Entra ID ("Expose an API").

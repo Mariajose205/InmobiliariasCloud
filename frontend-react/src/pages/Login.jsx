@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Button, Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
-import { loginRequest, obtenerRolCuenta } from '../msalConfig';
+import { loginRequest, destinoPostLogin } from '../msalConfig';
 
 function Login() {
   const { instance, accounts, inProgress } = useMsal();
@@ -13,7 +13,7 @@ function Login() {
   const handleLogin = async () => {
     // Si ya hay una cuenta autenticada, no hace falta abrir el flujo de nuevo.
     if (accounts.length > 0) {
-      navigate(obtenerRolCuenta(accounts[0]) ? '/admin' : '/');
+      navigate(destinoPostLogin(accounts[0]));
       return;
     }
 
@@ -41,7 +41,7 @@ function Login() {
   useEffect(() => {
     if (inProgress === 'none') {
       if (accounts.length > 0) {
-        navigate(obtenerRolCuenta(accounts[0]) ? '/admin' : '/');
+        navigate(destinoPostLogin(accounts[0]));
       }
     }
   }, [inProgress, accounts, navigate]);

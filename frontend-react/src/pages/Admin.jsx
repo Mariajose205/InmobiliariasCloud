@@ -238,10 +238,15 @@ function Admin() {
   const isLoggedIn = accounts.length > 0;
 
   useEffect(() => {
-    if (inProgress === 'none' && !isLoggedIn) {
-      navigate('/login');
+    if (inProgress === 'none') {
+      if (!isLoggedIn) {
+        navigate('/login');
+      } else if (rol === null) {
+        // Invitado (ej: profesor): fuera del panel, solo pagina principal.
+        navigate('/');
+      }
     }
-  }, [inProgress, isLoggedIn, navigate]);
+  }, [inProgress, isLoggedIn, rol, navigate]);
 
   if (!isPermitido) {
     return (
