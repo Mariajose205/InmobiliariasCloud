@@ -26,11 +26,14 @@ function Home() {
     }
   };
 
+  const normalizar = (valor) => (valor || '').toString().trim().toLowerCase();
+
   const filtrarCategoria = (catSeleccionada) => {
-    if (catSeleccionada === 'Todos') {
+    const objetivo = normalizar(catSeleccionada);
+    if (objetivo === 'todos') {
       setPropiedades([...todasLasPropiedades]);
     } else {
-      setPropiedades(todasLasPropiedades.filter(p => p.categoria === catSeleccionada));
+      setPropiedades(todasLasPropiedades.filter(p => normalizar(p.categoria) === objetivo));
     }
     setFiltro(catSeleccionada);
   };
@@ -46,7 +49,7 @@ function Home() {
       <PropertyCatalog 
         propiedades={propiedades}
         filtro={filtro}
-        setFiltro={setFiltro}
+        setFiltro={filtrarCategoria}
         onImageClick={setModalImage}
       />
       <Footer />
