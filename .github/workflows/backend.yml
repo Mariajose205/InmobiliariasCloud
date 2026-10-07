@@ -28,14 +28,8 @@ jobs:
       - name: Setup Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build y push api-gateway
-        uses: docker/build-push-action@v6
-        with:
-          context: backend/api-gateway
-          push: true
-          tags: |
-            ${{ secrets.DOCKER_HUB_USERNAME }}/api-gateway:latest
-            ${{ secrets.DOCKER_HUB_USERNAME }}/api-gateway:${{ github.sha }}
+      # Ya no se construye api-gateway: la API es el API Gateway de AWS
+      # (backend/aws/api-gateway.yaml) y no requiere imagen Docker.
 
       - name: Build y push inmobiliaria-service
         uses: docker/build-push-action@v6

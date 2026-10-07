@@ -1,6 +1,10 @@
 # Perfil de PRODUCCION: usa PostgreSQL y escucha en todas las interfaces del
-# contenedor (el API Gateway lo alcanza por la red docker; el puerto 8081 NO se
-# publica fuera del contenedor, asi que sigue sin ser accesible publicamente).
+# contenedor. El unico cliente posible es API Gateway, que llega por el VPC Link
+# o por el balanceador interno, nunca desde internet.
+#
+# API Gateway valida el access token de Azure Entra ID y reenvia la identidad
+# del usuario en las cabeceras X-User, X-User-Oid y X-User-Name. Este
+# microservicio resuelve el rol con esos datos y aplica la matriz de permisos.
 # Activar con SPRING_PROFILES_ACTIVE=prod. Los valores sensibles llegan por
 # variables de entorno desde docker-compose.
 server:
@@ -14,7 +18,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      # "update" conserva los datos en RDS entre reinicios (a diferencia de
+      # "update" conserva los datos entre reinicios (a diferencia de
       # create-drop). En la primera ejecucion se crean las tablas y DataSeeder
       # inserta las 3 propiedades de ejemplo y la auditoria demo.
       ddl-auto: update
@@ -25,3 +29,14 @@ spring:
   h2:
     console:
       enabled: false
+
+seguridad:
+  # Con esto activo, una peticion que llegue sin identidad se rechaza. Como API
+  # Gateway siempre la inyecta en las peticiones autorizadas, la ausencia de
+  # X-User significa que alguien alcanzo el microservicio saltandose el API
+  # Gateway, que es exactamente lo que se quiere evitar.
+  autorizacion-requerida: true
+  admin-email: ${ADMIN_EMAIL:administrador@inmobiliariaduoc.onmicrosoft.com}
+  admin-oid: ${ADMIN_OID:5ce11c6e-c796-41eb-b8ed-1872878cd197}
+  corredor-email: ${CORREDOR_EMAIL:Corredor@InmobiliariaDuoc.onmicrosoft.com}
+  corredor-oid: ${CORREDOR_OID:0a73de94-2722-4221-836c-bd7f3af16980}

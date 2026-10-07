@@ -1,0 +1,543 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  Inmobiliarias Duoc - API Gateway (HTTP API) que conecta el frontend React con
+  el microservicio inmobiliaria-service. Reemplaza tanto al proxy /api de nginx
+  como al api-gateway de Spring Boot. La validacion del access token de Azure
+  Entra ID la hace el autorizador JWT nativo de API Gateway, sin Lambda; las
+  reglas de rol por metodo HTTP las aplica el microservicio.
+
+# ---------------------------------------------------------------------------
+# Despliegue
+#
+#   aws cloudformation deploy \
+#     --stack-name inmobiliarias-api \
+#     --template-file backend/aws/api-gateway.yaml \
+#     --capabilities CAPABILITY_NAMED_IAM \
+#     --parameter-overrides VpcId=subnet-vpc VpcLinkSubnetIds=subnet-aaa,subnet-bbb
+#
+# La URL publica queda en la salida ApiInvokeUrl y es la que debe usarse como
+# VITE_API_BASE_URL en el frontend.
+#
+# Ver backend/aws/README.md para el paso a paso completo, incluida la parte de
+# red que este template no puede crear por si mismo.
+# ---------------------------------------------------------------------------
+
+Parameters:
+
+  # --- Azure Entra ID (mismos valores que VITE_AZURE_* del frontend) ---
+  AzureClientId:
+    Type: String
+    Default: 'f345fdc4-1687-49d0-b0cc-e0d45eb85731'
+    Description: Client ID (Application ID) del registro de aplicacion que expone la API.
+
+  AzureApiScope:
+    Type: String
+    Default: 'api://f345fdc4-1687-49d0-b0cc-e0d45eb85731/access_as_user'
+    Description: >
+      Scope delegado que el frontend SOLICITA a Entra ID (VITE_AZURE_API_SCOPE).
+      La comparacion del autorizador se hace contra el claim scp real del token,
+      que viene en forma corta (access_as_user), asi que este valor no se usa en
+      AuthorizationScopes (ver AuthorizationScopeName).
+
+  AuthorizationScopeName:
+    Type: String
+    Default: 'access_as_user'
+    Description: >
+      Valor EXACTO del claim scp que trae el access token emitido por Entra ID
+      para el scope api://.../access_as_user. Los access tokens v2.0 incluyen el
+      scope corto (access_as_user), NO la URI completa. AuthorizationScopes del
+      autorizador JWT debe coincidir con este valor para no rechazar el token.
+
+  AzureIssuer:
+    Type: String
+    Default: 'https://sts.windows.net/680da6eb-42e0-4147-bda4-8c06e4819411/'
+    Description: >
+      Emisor (claim iss) que debe traer el token. IMPORTANTE: los ACCESS TOKENS
+      de Entra ID se emiten con iss=https://sts.windows.net/<tenant-id>/ (con
+      barra final), mientras que los ID TOKENS usan
+      https://login.microsoftonline.com/<tenant-id>/v2.0. Como API Gateway valida
+      el access token, aqui va la URL de sts.windows.net.
+
+  # --- CORS --------------------------------------------------------------
+  AllowedOriginProd:
+    Type: String
+    Default: 'https://inmobiliariasduoc.duckdns.org'
+    Description: Origen permitted en produccion. Nunca usar "*".
+
+  AllowedOriginDev:
+    Type: String
+    Default: 'http://localhost:5173'
+    Description: Origen de desarrollo (Vite). Solo se incluye si IncludeDevOrigin es true.
+
+  IncludeDevOrigin:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: >
+      Poner en true SOLO si se va a usar "npm run dev" apuntando al API Gateway.
+      En un despliegue de produccion debe quedar en false.
+
+  # --- Red privada hacia el microservicio --------------------------------
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC donde viven el EC2 del backend y las subnets del VPC Link.
+
+  VpcLinkSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: >
+      Exactamente dos subnets separadas por coma y de dos AZ distintas, donde API
+      Gateway despliega las ENIs del VPC Link (por ejemplo
+      subnet-0aaa,subnet-0bbb). Deben pertenecer a la VPC del EC2 de backend.
+      No importa si son Public subnet o Private subnet. CloudFormation no admite
+      MinItems/MaxItems en este tipo de parametro: si se pasan menos de dos
+      subnets o las dos estan en la misma AZ, la creacion del VPC Link falla con
+      un error explicito de AWS.
+
+  BackendInstanceId:
+    Type: AWS::EC2::Instance::Id
+    Description: >
+      Instancia EC2 de backend (i-...). Es el destino del target group del NLB
+      interno que crea esta plantilla. Se obtiene en EC2 -> Instances -> copiar el
+      Instance ID. API Gateway no acepta una IP suelta como destino de una
+      integracion privada de HTTP API: exige el ARN de un listener de NLB, asi que
+      el balanceador lo crea el propio stack.
+
+  BackendPort:
+    Type: Number
+    Default: 8081
+    MinValue: 1
+    Description: Puerto del microservicio dentro de la red privada.
+
+  VpcCidr:
+    Type: String
+    Description: >
+      Rango CIDR de la VPC, tal como aparece en VPC -> Your VPCs (por ejemplo
+      172.31.0.0/16). Acota la salida del VPC Link hacia el microservicio. Un
+      CIDR equivocado hace que la API responda 504 Integration timeout.
+
+  # --- Limites de trafico -------------------------------------------------
+  ThrottlingRateLimit:
+    Type: Number
+    Default: 100
+    MinValue: 1
+    Description: Peticiones por segundo admitidas de forma sostenida.
+
+  ThrottlingBurstLimit:
+    Type: Number
+    Default: 200
+    MinValue: 1
+    Description: Peticiones por segundo admitidas en rafagas cortas.
+
+  AccessLogRetentionDays:
+    Type: Number
+    Default: 30
+    Description: Dias que se conservan los registros de acceso de la API.
+
+Conditions:
+  ConOrigenDev: !Equals [!Ref IncludeDevOrigin, 'true']
+
+Resources:
+
+  # -------------------------------------------------------------------------
+  # La API.
+  #
+  # CorsConfiguration cumple dos funciones: responder el preflight OPTIONS que
+  # el navegador envia antes de cada llamada autenticada, y anadir las cabeceras
+  # Access-Control-* a las respuestas reales.
+  # -------------------------------------------------------------------------
+  InmobiliariaApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: inmobiliarias-duoc-api
+      ProtocolType: HTTP
+      Description: API publica del catalogo de propiedades de Inmobiliarias Duoc.
+      CorsConfiguration:
+        # Sin comodin: se listan los origenes exactos. Un "*" permitiria que
+        # cualquier sitio de internet llamara a la API usando el token de un
+        # usuario que haya iniciado sesion alla.
+        AllowOrigins: !If
+          - ConOrigenDev
+          - [!Ref AllowedOriginProd, !Ref AllowedOriginDev]
+          - [!Ref AllowedOriginProd]
+        # Solo los verbos que el catalogo usa. OPTIONS se declara porque es el
+        # metodo del preflight.
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        # Solo las cabeceras que el frontend envia de verdad. "Authorization"
+        # transporta el token y "Content-Type" debe declararse porque
+        # application/json no es un valor "safelisted" segun la especificacion
+        # CORS. A proposito NO se incluyen X-User ni X-User-Rol: el navegador no
+        # debe poder enviarlas, y API Gateway las sobrescribe con los claims del
+        # token ya validado.
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+          - Accept
+        # El frontend se autentica con un token Bearer en la cabecera
+        # Authorization, no con cookies. AllowCredentials en true obligaria al
+        # navegador a exigir un origen concreto y a adjuntar cookies en cada
+        # llamada sin que la app las necesite, ampliando el impacto de un
+        # eventual CSRF. Se deja en false.
+        AllowCredentials: false
+        # El frontend solo lee el codigo de estado y el cuerpo JSON, y ambos son
+        # accesibles sin configuracion. ExposeHeaders se omite: no se autoriza
+        # al JavaScript de la pagina a leer ninguna cabecera de la respuesta.
+        #
+        # MaxAge hace que el navegador cachee el preflight una hora, evitando
+        # repetir la peticion OPTIONS antes de cada llamada autenticada.
+        MaxAge: 3600
+      # OJO: en AWS::ApiGatewayV2::Api, Tags es un MAPA plano de clave/valor,
+      # no la lista de objetos {Key, Value} que usan EC2, ELB o CloudWatch Logs.
+      # Por eso este bloque se ve distinto al del resto de la plantilla.
+      Tags:
+        Aplicacion: inmobiliarias-duoc
+
+  # -------------------------------------------------------------------------
+  # Autorizador JWT nativo de API Gateway.
+  #
+  # Descarga el JWKS del issuer y valida firma, kid, iss, aud, exp, nbf, iat y
+  # que el token incluya el scope configurado. No hace falta ningun Lambda.
+  # -------------------------------------------------------------------------
+  AzureEntraAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      Name: azure-entra-jwt
+      AuthorizerType: JWT
+      IdentitySource:
+        - '$request.header.Authorization'
+      JwtConfiguration:
+        Issuer: !Ref AzureIssuer
+        Audience:
+          - !Sub 'api://${AzureClientId}'
+          - !Ref AzureClientId
+
+  # -------------------------------------------------------------------------
+  # VPC Link: las ENIs privadas que permiten que API Gateway alcance el
+  # microservicio sin exponerlo a internet.
+  # -------------------------------------------------------------------------
+  VpcLinkSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Salida desde el VPC Link de API Gateway hacia el microservicio.
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: !Ref BackendPort
+          ToPort: !Ref BackendPort
+          CidrIp: !Ref VpcCidr
+          Description: Microservicio docker en el EC2 de backend.
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref VpcCidr
+          Description: Salida hacia servicios de AWS (logs, NLB).
+      Tags:
+        - Key: Aplicacion
+          Value: inmobiliarias-duoc
+
+  VpcLink:
+    Type: AWS::ApiGatewayV2::VpcLink
+    Properties:
+      Name: InmobiliariaVpcLink
+      SubnetIds: !Ref VpcLinkSubnetIds
+      SecurityGroupIds:
+        - !Ref VpcLinkSecurityGroup
+
+  # -------------------------------------------------------------------------
+  # Network Load Balancer interno hacia el microservicio.
+  #
+  # No es opcional ni decorativo: una integracion privada de HTTP API exige que
+  # IntegrationUri sea el ARN de un listener de NLB (o de ALB, o de un servicio
+  # de AWS Cloud Map). Una IP privada o un DNS "crudo" no son validos.
+  #
+  # Ventajas frente a apuntar directo al EC2: health checks (API Gateway deja de
+  # mandar trafico si el contenedor cae), y deregistro automatico para que no se
+  # apunten peticiones a un puerto muerto. Un NLB no tiene cargo horario, solo se
+  # cobra el procesamiento de datos, asi que no agrega costo fijo.
+  # -------------------------------------------------------------------------
+  BackendNlb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: inmob-backend-nlb
+      Scheme: internal
+      Type: network
+      SubnetMappings:
+        - SubnetId: !Select [0, !Ref VpcLinkSubnetIds]
+        - SubnetId: !Select [1, !Ref VpcLinkSubnetIds]
+      # El cross-zone se activa como ATRIBUTO DEL BALANCEADOR, no como propiedad
+      # del target group: AWS::ElasticLoadBalancingV2::TargetGroup no admite una
+      # propiedad "CrossZone" y el despliegue falla con "Unsupported property".
+      # Sin esto, si las ENIs del VPC Link caen en una AZ distinta de la del
+      # target, una parte de las peticiones falla con 503.
+      LoadBalancerAttributes:
+        - Key: load_balancing.cross_zone.enabled
+          Value: 'true'
+      Tags:
+        - Key: Aplicacion
+          Value: inmobiliarias-duoc
+
+  BackendTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: inmob-backend-tg-v3
+      VpcId: !Ref VpcId
+      Port: !Ref BackendPort
+      Protocol: TCP
+      TargetType: instance
+      Targets:
+        - Id: !Ref BackendInstanceId
+          Port: !Ref BackendPort
+      # Health check TCP contra el puerto del contenedor. El cross-zone del NLB
+      # se habilita en BackendNlb, no aqui, porque este recurso no tiene
+      # propiedad CrossZone.
+      HealthCheckProtocol: TCP
+      HealthCheckPort: !Ref BackendPort
+      Tags:
+        - Key: Aplicacion
+          Value: inmobiliarias-duoc
+
+  BackendListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref BackendNlb
+      Port: !Ref BackendPort
+      Protocol: TCP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref BackendTargetGroup
+
+  # -------------------------------------------------------------------------
+  # Integraciones HTTP proxy hacia el microservicio, una por metodo, porque
+  # IntegrationMethod define el verbo que se reenvia.
+  #
+  # RequestParameters inyecta como cabeceras los claims del token ya validado.
+  # API Gateway sobrescribe cualquier valor que llegue del cliente, de modo que
+  # el navegador no puede suplantar a otro usuario en el registro de auditoria.
+  #
+  # Ojo con el formato de las claves: en HTTP API son
+  # <accion>:<ubicacion>.<nombre> con accion en append|overwrite|remove. Aqui se
+  # usa overwrite a proposito, para que el valor enviado por el navegador sea
+  # descartado y se reemplace por el claim del token ya validado.
+  # -------------------------------------------------------------------------
+  MicroservicioGetIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: GET
+      IntegrationUri: !Ref BackendListener
+      PayloadFormatVersion: '1.0'
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLink
+      TimeoutInMillis: 29000
+      RequestParameters:
+        overwrite:header.X-User: $context.authorizer.claims.preferred_username
+        overwrite:header.X-User-Oid: $context.authorizer.claims.oid
+        overwrite:header.X-User-Name: $context.authorizer.claims.name
+
+  # Integracion para las rutas PUBLICAS del catalogo.
+  #
+  # Es una copia de la anterior SIN RequestParameters a proposito: las rutas
+  # publicas van con AuthorizationType NONE, y en ellas $context.authorizer no
+  # existe. Mapear claims en una peticion sin autorizador deja variables sin
+  # resolver y la peticion falla con 500.
+  MicroservicioGetPublicIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: GET
+      IntegrationUri: !Ref BackendListener
+      PayloadFormatVersion: '1.0'
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLink
+      TimeoutInMillis: 29000
+
+  MicroservicioPostIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: POST
+      IntegrationUri: !Ref BackendListener
+      PayloadFormatVersion: '1.0'
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLink
+      TimeoutInMillis: 29000
+      RequestParameters:
+        overwrite:header.X-User: $context.authorizer.claims.preferred_username
+        overwrite:header.X-User-Oid: $context.authorizer.claims.oid
+        overwrite:header.X-User-Name: $context.authorizer.claims.name
+
+  MicroservicioPutIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: PUT
+      IntegrationUri: !Ref BackendListener
+      PayloadFormatVersion: '1.0'
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLink
+      TimeoutInMillis: 29000
+      RequestParameters:
+        overwrite:header.X-User: $context.authorizer.claims.preferred_username
+        overwrite:header.X-User-Oid: $context.authorizer.claims.oid
+        overwrite:header.X-User-Name: $context.authorizer.claims.name
+
+  MicroservicioDeleteIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: DELETE
+      IntegrationUri: !Ref BackendListener
+      PayloadFormatVersion: '1.0'
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLink
+      TimeoutInMillis: 29000
+      RequestParameters:
+        overwrite:header.X-User: $context.authorizer.claims.preferred_username
+        overwrite:header.X-User-Oid: $context.authorizer.claims.oid
+        overwrite:header.X-User-Name: $context.authorizer.claims.name
+
+  # -------------------------------------------------------------------------
+  # Rutas.
+  #
+  # Las lecturas del catalogo son publicas, porque Home.jsx las pide sin sesion
+  # iniciada, y por eso van con AuthorizationType NONE. El resto exige el token
+  # con el scope delegado. El preflight OPTIONS lo responde API Gateway a partir
+  # de CorsConfiguration, antes de evaluar la autorizacion, por eso no se
+  # declaran rutas OPTIONS.
+  # -------------------------------------------------------------------------
+  RutaListarPropiedades:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/propiedades
+      Target: !Sub 'integrations/${MicroservicioGetPublicIntegration}'
+      AuthorizationType: NONE
+
+  RutaObtenerPropiedad:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/propiedades/{id}
+      Target: !Sub 'integrations/${MicroservicioGetPublicIntegration}'
+      AuthorizationType: NONE
+
+  RutaCrearPropiedad:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: POST /api/propiedades
+      Target: !Sub 'integrations/${MicroservicioPostIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+  RutaActualizarPropiedad:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: PUT /api/propiedades/{id}
+      Target: !Sub 'integrations/${MicroservicioPutIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+  RutaEliminarPropiedad:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: DELETE /api/propiedades/{id}
+      Target: !Sub 'integrations/${MicroservicioDeleteIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+  RutaAuditoria:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/auditoria
+      Target: !Sub 'integrations/${MicroservicioGetIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+  RutaMe:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/me
+      Target: !Sub 'integrations/${MicroservicioGetIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+  # -------------------------------------------------------------------------
+  # Stage en $default: la URL publica no lleva segmento de stage, que queda
+  # https://{apiId}.execute-api.{region}.amazonaws.com/api/propiedades
+  # -------------------------------------------------------------------------
+  ApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/${InmobiliariaApi}'
+      RetentionInDays: !Ref AccessLogRetentionDays
+
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      StageName: '$default'
+      AutoDeploy: true
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiAccessLogGroup.Arn
+        Format: >-
+          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp",
+          "requestTime":"$context.requestTime","httpMethod":"$context.httpMethod",
+          "routeKey":"$context.routeKey","path":"$context.path",
+          "status":"$context.status","protocol":"$context.protocol",
+          "responseLength":"$context.responseLength",
+          "integrationError":"$context.integrationErrorMessage"}
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: !Ref ThrottlingBurstLimit
+        ThrottlingRateLimit: !Ref ThrottlingRateLimit
+        DetailedMetricsEnabled: true
+
+Outputs:
+
+  ApiInvokeUrl:
+    Description: >
+      Base para VITE_API_BASE_URL en el frontend, sin barra final.
+    Value: !Sub 'https://${InmobiliariaApi}.execute-api.${AWS::Region}.amazonaws.com'
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiInvokeUrl'
+
+  AllowedOrigins:
+    Description: Origenes permitidos por CORS, tal como quedaron desplegados.
+    Value: !If
+      - ConOrigenDev
+      - !Sub '${AllowedOriginProd},${AllowedOriginDev}'
+      - !Ref AllowedOriginProd
+
+  VpcLinkId:
+    Description: Id del VPC Link, por si hace falta modificarlo despues.
+    Value: !Ref VpcLink
+
+  BackendNlbDnsName:
+    Description: >
+      DNS interno del balanceador. Sirve para diagnÃ³stico: no se usa como
+      IntegrationUri, porque API Gateway exige el ARN del listener.
+    Value: !GetAtt BackendNlb.DNSName
+
+  BackendListenerArn:
+    Description: ARN del listener, que es lo que usan las integraciones privadas.
+    Value: !Ref BackendListener

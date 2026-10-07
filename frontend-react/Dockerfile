@@ -16,10 +16,9 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Stage 2: servidor estatico nginx. La config /etc/nginx/templates/*.template
-# se procesa automaticamente con envsubst al arrancar usando las variables de
-# entorno (API_GATEWAY_URL -> IP del EC2 del backend).
+# Stage 2: servidor estatico nginx. No hay proxy hacia ningun backend: el
+# navegador llama directo al API Gateway de AWS y el CORS lo resuelve la API.
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/templates/default.conf.template
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80

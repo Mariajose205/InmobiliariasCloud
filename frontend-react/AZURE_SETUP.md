@@ -67,36 +67,43 @@ VITE_AZURE_CLIENT_ID=tu_client_id_aqui
 VITE_AZURE_AUTHORITY=https://login.microsoftonline.com/tu_tenant_id
 VITE_AZURE_REDIRECT_URI=https://inmobiliariasduoc.duckdns.org/
 VITE_AZURE_API_SCOPE=api://tu_client_id_aqui/access_as_user
-VITE_API_BASE_URL=https://inmobiliariasduoc.duckdns.org
+VITE_API_BASE_URL=https://TU_API_ID.execute-api.TU_REGION.amazonaws.com
 ```
 
 **Importante**: Reemplaza los valores con los que obtuviste de Azure Portal.
 `VITE_AZURE_REDIRECT_URI` debe coincidir EXACTAMENTE (incluida la barra final,
-si así lo registraste) con el Redirect URI de Azure. `VITE_API_BASE_URL` apunta
-directamente al dominio de producción (las llamadas /api las proxya nginx al
-gateway).
+si así lo registraste) con el Redirect URI de Azure.
 
-### 6. Configurar el backend (api-gateway)
+`VITE_API_BASE_URL` es la URL del **API Gateway de AWS**, sin barra final. Como
+el navegador llama directo a AWS y no al dominio del frontend, ambos son orígenes
+distintos y el CORS lo resuelve el propio API Gateway. El redirect URI **sigue
+siendo el del frontend**: en Entra ID no hay que registrar nada nuevo.
 
-En `backend/api-gateway/src/main/resources/application.yml`:
+### 6. Configurar la API en AWS
+
+El token ya no lo valida una aplicación propia: lo valida el autorizador JWT
+nativo del API Gateway. En `backend/aws/api-gateway.yaml` (o en la consola) hay que
+que coincidan con lo de arriba:
 
 ```yaml
-azure:
-  tenant-id: "TU_TENANT_ID"
-  client-id: "TU_CLIENT_ID"
-  admin-email: "administrador@inmobiliariaduoc.onmicrosoft.com"
-  app-id-uri: "api://TU_CLIENT_ID"
-  scope: "access_as_user"
-  audiences: "api://TU_CLIENT_ID,TU_CLIENT_ID"
+# Identidad (mismos valores que VITE_AZURE_*)
+AzureTenantId: "TU_TENANT_ID"
+AzureClientId: "TU_CLIENT_ID"
+AzureIssuer: "https://login.microsoftonline.com/TU_TENANT_ID/v2.0"
+AzureApiScope: "api://TU_CLIENT_ID/access_as_user"
+
+# CORS: el origen debe ser el del FRONTEND, no el de la API
+AllowedOriginProd: "https://inmobiliariasduoc.duckdns.org"
 ```
 
-Spring valida `iss` (issuer-uri del tenant) y `aud` (acepta el App ID URI
-`api://...` y/o el GUID del client-id). Además exige el claim `scp` =
-`access_as_user`, por lo que el **ID Token** y el **access token de Graph** ya
-no sirven para las rutas privadas:
+API Gateway valida `iss`, `aud`, `exp`, `nbf`, `iat` y el claim `scp`. Como cada
+ruta exige el scope `access_as_user`, el **ID Token** y el **access token de
+Graph** no sirven como credencial:
 - ID Token: `aud` = client-id de la SPA y **no trae `scp`** → rechazado.
 - Token de Graph: `aud` = `https://graph.microsoft.com` y `scp` = `User.Read` → rechazado.
 - Access token de nuestra API: `aud` = `api://{client-id}`, `scp` = `access_as_user` → aceptado.
+
+El detalle completo del despliegue está en `backend/aws/README.md`.
 
 ### 7. Configurar los roles de usuario (admin y corredor)
 
@@ -107,20 +114,20 @@ El sistema distingue dos roles internos (sin necesidad de grupos en Entra):
 - **CORREDOR** (`Corredor@InmobiliariaDuoc.onmicrosoft.com`): puede **publicar
   (POST)** y **eliminar (DELETE)** propiedades, pero **NO editar (PUT)**.
 
-Los roles se configuran en `backend/api-gateway/src/main/resources/application.yml`:
+La autenticación la hace API Gateway, pero **el rol lo resuelve el microservicio**,
+porque API Gateway no conoce los roles del negocio. Se configura en
+`backend/inmobiliaria-service/src/main/resources/application.yml`:
 
 ```yaml
-azure:
-  tenant-id: "680da6eb-42e0-4147-bda4-8c06e4819411"
-  client-id: "f345fdc4-1687-49d0-b0cc-e0d45eb85731"
+seguridad:
   admin-email: "administrador@inmobiliariaduoc.onmicrosoft.com"
-  admin-object-id: ""   # opcional, ver abajo
+  admin-oid: ""   # opcional, ver abajo
   corredor-email: "Corredor@InmobiliariaDuoc.onmicrosoft.com"
-  corredor-object-id: "0a73de94-2722-4221-836c-bd7f3af16980"
-  app-id-uri: "api://f345fdc4-1687-49d0-b0cc-e0d45eb85731"
-  scope: "access_as_user"
-  audiences: "api://f345fdc4-1687-49d0-b0cc-e0d45eb85731,f345fdc4-1687-49d0-b0cc-e0d45eb85731"
+  corredor-oid: "0a73de94-2722-4221-836c-bd7f3af16980"
 ```
+
+En producción llegan por variables de entorno desde `docker-compose.yml`
+(`ADMIN_EMAIL`, `ADMIN_OID`, `CORREDOR_EMAIL`, `CORREDOR_OID`).
 
 > **Importante sobre el `oid` (object-id):** los access tokens de Entra **no
 > incluyen `email` ni `preferred_username` por defecto**. Para que la
@@ -168,11 +175,13 @@ El proyecto ya apunta SOLO a producción (`https://inmobiliariasduoc.duckdns.org
 1. Este dominio debe estar registrado como **Redirect URI** en Azure Portal
    (App registrations → Authentication → Add a platform → Web). Sin la barra
    final, agrega también `https://inmobiliariasduoc.duckdns.org`.
-2. `VITE_AZURE_REDIRECT_URI` y `VITE_API_BASE_URL` deben apuntar a ese dominio
-   (ya configurado en `.env`, `.env.production` y como fallback en el código).
-3. En el CI/CD (GitHub Actions → repo settings → Variables), los valores
-   `VITE_AZURE_REDIRECT_URI` y `VITE_API_BASE_URL` deben estar seteados al
-   dominio para que el build de Docker los inyecte (los build-args del
-   workflow sobreescriben los `.env`).
-4. Nginx del frontend proxya `/api` al gateway, por lo que no hay CORS en
-   producción.
+2. `VITE_AZURE_REDIRECT_URI` apunta a ese dominio, pero `VITE_API_BASE_URL`
+   apunta a la URL del **API Gateway** (`https://<id>.execute-api.<region>.amazonaws.com`).
+   Son orígenes distintos a propósito, y el CORS lo resuelve la API.
+3. En el CI/CD (GitHub Actions → repo settings → Variables), `VITE_API_BASE_URL`
+   debe estar seteado a la URL del API Gateway para que el build de Docker lo
+   inyecte (los build-args del workflow sobreescriben los `.env`).
+4. El origen permitido por CORS en la API debe ser exactamente el dominio del
+   frontend. Si no coincide, el navegador descarta todas las respuestas y la
+   consola muestra un error de CORS aunque la API responda bien. Ver
+   `backend/aws/README.md`.

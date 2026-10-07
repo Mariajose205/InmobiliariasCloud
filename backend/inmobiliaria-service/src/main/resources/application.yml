@@ -2,7 +2,8 @@ server:
   port: 8081
   # IMPORTANTE: el microservicio NO esta expuesto publicamente.
   # Solo escucha en la interfaz de loopback (local) del servidor.
-  # El acceso publico se realiza unicamente a traves del API Gateway (puerto 8080).
+  # El acceso publico se realiza unicamente a traves del API Gateway de AWS,
+  # que es quien valida el token de Azure Entra ID antes de reenviar la peticion.
   address: 127.0.0.1
 
 spring:
@@ -22,3 +23,12 @@ spring:
       # H2 console habilitada solo para desarrollo local, accesible via loopback.
       enabled: true
       path: /h2-console
+
+seguridad:
+  # En desarrollo local no hay API Gateway delante, asi que no se exige identidad.
+  # En produccion esto se activa (ver application-prod.yml).
+  autorizacion-requerida: false
+  admin-email: administrador@inmobiliariaduoc.onmicrosoft.com
+  admin-oid: 5ce11c6e-c796-41eb-b8ed-1872878cd197
+  corredor-email: Corredor@InmobiliariaDuoc.onmicrosoft.com
+  corredor-oid: 0a73de94-2722-4221-836c-bd7f3af16980

@@ -1,8 +1,13 @@
 import { msalInstance, API_SCOPE } from '../msalConfig';
 
-// Base URL del API Gateway. Apunta siempre al dominio de produccion
-// (configurado via VITE_API_BASE_URL en .env / build-args de Docker).
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://inmobiliariasduoc.duckdns.org').replace(/\/+$/, '');
+// Base URL del API Gateway de AWS. La entrega el despliegue del stack de
+// CloudFormation (salida ApiInvokeUrl) y Vite la incorpora al bundle en tiempo
+// de build. Sin barra final.
+//
+// El navegador llama DIRECTO a la API, ya no al dominio del frontend: el proxy
+// /api de nginx fue eliminado. Como son origenes distintos, el CORS lo resuelve
+// el propio API Gateway.
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
 const API_SCOPE_LIST = [API_SCOPE];
 
@@ -52,6 +57,13 @@ async function apiFetchAutenticado(path, options = {}) {
  * Invoca la API sin token (lectura pública del catálogo).
  */
 async function apiFetch(path, options = {}) {
+  if (!API_BASE_URL || API_BASE_URL.includes('REEMPLAZAR')) {
+    throw new Error(
+      'Falta VITE_API_BASE_URL. Define la URL del API Gateway (salida ApiInvokeUrl ' +
+      'del stack de CloudFormation) en .env antes de arrancar la app.'
+    );
+  }
+
   const url = `${API_BASE_URL}${path}`;
   const response = await fetch(url, options);
 

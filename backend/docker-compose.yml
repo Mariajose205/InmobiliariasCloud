@@ -1,12 +1,18 @@
-# Despliegue del backend (api-gateway + inmobiliaria-service + base de datos)
-# en un EC2 usando imagenes desde Docker Hub.
+# Despliegue del backend (microservicio + base de datos) en un EC2 usando
+# imagenes desde Docker Hub.
+#
+# Ya no hay api-gateway: la API es el API Gateway (HTTP API) de AWS, definido
+# en backend/aws/api-gateway.yaml. Este compose solo levanta PostgreSQL y el
+# microservicio, que queda accesible solo desde API Gateway.
 #
 # Requiere un archivo .env en esta misma carpeta con las variables:
 #   POSTGRES_DB=inmobiliarias
 #   POSTGRES_USER=<usuario de la base>
 #   POSTGRES_PASSWORD=<password de la base>
-#   JWT_SECRET=<clave larga >= 32 caracteres>
-#   ADMIN_PASSWORD=<password del admin del gateway>
+#   ADMIN_EMAIL=<correo del administrador en Entra ID>
+#   ADMIN_OID=<objectId del administrador en Entra ID>
+#   CORREDOR_EMAIL=<correo del corredor en Entra ID>
+#   CORREDOR_OID=<objectId del corredor en Entra ID>
 #
 # En tu PC (construir y subir imagenes a Docker Hub):
 #   docker compose build
@@ -18,8 +24,8 @@
 #
 # Nota: la base de datos PostgreSQL corre dentro del mismo EC2 (servicio "db")
 # con un volumen Docker para persistir los datos entre reinicios. Las tablas se
-# crean automaticamente la primera vez (ddl-auto: update) y DataSeeder inserta
-# las propiedades demo. No requiere permisos RDS en AWS.
+# crean automaticamente la primera vez (ddl-auto: update) y DataSeeder inserta las
+# propiedades demo. No requiere permisos RDS en AWS.
 services:
 
   # PostgreSQL persistente (reemplaza a Amazon RDS).
@@ -42,6 +48,19 @@ services:
     networks:
       - inmob-red
 
+  # El puerto 8081 se publica para que API Gateway lo alcance por el VPC Link.
+  # El Security Group del EC2 debe dejar entrar el 8081 solo desde el VPC Link o
+  # el NLB, nunca desde internet.
+  #
+  # ADMIN_* y CORREDOR_* son la identidad contra la que el microservicio resuelve
+  # el rol de cada usuario. La validacion del token de Azure Entra ID la hace API
+  # Gateway; aqui solo se decide que puede hacer cada rol.
+  #
+  # Ya no existen JWT_SECRET ni ADMIN_PASSWORD: ambos pertenecían al antiguo
+  # api-gateway de Spring Boot, que emitia su propio JWT y que fue eliminado.
+  #
+  # Para atar el puerto a la IP privada del EC2 en vez de a todas sus interfaces:
+  #   - "${BACKEND_PRIVATE_IP}:8081:8081"
   inmobiliaria-service:
     build: ./inmobiliaria-service
     image: mariacarrero/inmobiliaria-service:latest
@@ -49,35 +68,19 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      # Dentro de la red docker, la base de datos se llama por su nombre.
       DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
       DB_USERNAME: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_OID: ${ADMIN_OID}
+      CORREDOR_EMAIL: ${CORREDOR_EMAIL}
+      CORREDOR_OID: ${CORREDOR_OID}
       TZ: America/Santiago
-    expose:
-      - "8081"
+    ports:
+      - "8081:8081"
     depends_on:
       db:
         condition: service_healthy
-    networks:
-      - inmob-red
-
-  api-gateway:
-    build: ./api-gateway
-    image: mariacarrero/api-gateway:latest
-    container_name: api-gateway
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
-      # Dentro de la red docker, el microservicio se llama por su nombre.
-      BACKEND_URL: http://inmobiliaria-service:8081
-      JWT_SECRET: ${JWT_SECRET}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-      TZ: America/Santiago
-    depends_on:
-      - inmobiliaria-service
     networks:
       - inmob-red
 
