@@ -68,7 +68,9 @@ public class IdentidadInterceptor implements HandlerInterceptor {
         // Catalogo publico: Home.jsx lo pide sin sesion iniciada.
         boolean esAuditoria = uri.startsWith("/api/auditoria");
         boolean esPerfil = uri.startsWith("/api/me");
-        if (!esAuditoria && !esPerfil && "GET".equalsIgnoreCase(metodo)) {
+        // Administracion del broker: solo el ADMIN puede tocar colas/exchanges.
+        boolean esAdmin = uri.startsWith("/api/admin");
+        if (!esAuditoria && !esPerfil && !esAdmin && "GET".equalsIgnoreCase(metodo)) {
             guardar(request, usuario, nombre, oid, hayIdentidad ? resolverRol(usuario, oid) : "");
             return true;
         }
@@ -93,6 +95,14 @@ public class IdentidadInterceptor implements HandlerInterceptor {
 
         if (esPerfil) {
             return true;
+        }
+
+        if (esAdmin) {
+            if (ROL_ADMIN.equals(rol)) {
+                return true;
+            }
+            return rechazar(response, 403,
+                    "{\"error\":\"Solo el administrador puede administrar el broker de mensajeria.\"}");
         }
 
         if (esAuditoria) {

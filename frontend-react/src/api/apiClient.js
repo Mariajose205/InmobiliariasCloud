@@ -133,3 +133,18 @@ export function obtenerUsuarioActual() {
 export function obtenerAuditoria() {
   return apiFetchAutenticado('/api/auditoria');
 }
+
+/**
+ * Solicita la generacion asincrona del informe PDF de propiedades.
+ *
+ * El backend publica la peticion en RabbitMQ y responde 202 Accepted; el PDF
+ * se genera en segundo plano. El alcance lo decide el rol en el servidor:
+ *   - admin    -> informe con TODAS las propiedades.
+ *   - corredor -> informe solo con las propiedades que el mismo creo.
+ * El informe llega por correo al solicitante.
+ */
+export function solicitarInformePdf() {
+  return apiFetchAutenticado('/api/informes/propiedades/pdf', {
+    method: 'POST'
+  });
+}

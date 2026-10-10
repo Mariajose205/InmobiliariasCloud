@@ -60,7 +60,12 @@ public class PropiedadController {
     public ResponseEntity<Propiedad> crear(
             @Valid @RequestBody Propiedad propiedad,
             @RequestAttribute(value = IdentidadInterceptor.ATTR_USUARIO, required = false) String usuario,
+            @RequestAttribute(value = IdentidadInterceptor.ATTR_NOMBRE, required = false) String nombre,
+            @RequestAttribute(value = IdentidadInterceptor.ATTR_OID, required = false) String oid,
             @RequestAttribute(value = IdentidadInterceptor.ATTR_ROL, required = false) String rol) {
+        propiedad.setCreadoPorEmail(valor(usuario));
+        propiedad.setCreadoPorNombre(valor(nombre));
+        propiedad.setCreadoPorOid(valor(oid));
         Propiedad creada = service.crear(propiedad);
         auditoriaService.registrar("CREAR", creada.getTitulo(), valor(usuario), valor(rol));
         return ResponseEntity.status(HttpStatus.CREATED).body(creada);

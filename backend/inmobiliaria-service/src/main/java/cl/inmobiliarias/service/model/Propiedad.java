@@ -6,11 +6,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,6 +23,18 @@ public class Propiedad {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "creado_por_email")
+    private String creadoPorEmail;
+
+    @Column(name = "creado_por_oid")
+    private String creadoPorOid;
+
+    @Column(name = "creado_por_nombre")
+    private String creadoPorNombre;
+
+    @Column(name = "fecha_creacion")
+    private Instant fechaCreacion;
 
     @NotBlank(message = "El titulo es obligatorio")
     @Column(nullable = false)
@@ -74,6 +88,13 @@ public class Propiedad {
         this.bodega = bodega;
         this.videoUrl = videoUrl;
         this.imagenes = imagenes != null ? imagenes : new ArrayList<>();
+    }
+
+    @PrePersist
+    public void prePersist() {
+        if (fechaCreacion == null) {
+            fechaCreacion = Instant.now();
+        }
     }
 
     public Long getId() {
@@ -186,5 +207,37 @@ public class Propiedad {
 
     public void setImagenes(List<String> imagenes) {
         this.imagenes = imagenes;
+    }
+
+    public String getCreadoPorEmail() {
+        return creadoPorEmail;
+    }
+
+    public void setCreadoPorEmail(String creadoPorEmail) {
+        this.creadoPorEmail = creadoPorEmail;
+    }
+
+    public String getCreadoPorOid() {
+        return creadoPorOid;
+    }
+
+    public void setCreadoPorOid(String creadoPorOid) {
+        this.creadoPorOid = creadoPorOid;
+    }
+
+    public String getCreadoPorNombre() {
+        return creadoPorNombre;
+    }
+
+    public void setCreadoPorNombre(String creadoPorNombre) {
+        this.creadoPorNombre = creadoPorNombre;
+    }
+
+    public Instant getFechaCreacion() {
+        return fechaCreacion;
+    }
+
+    public void setFechaCreacion(Instant fechaCreacion) {
+        this.fechaCreacion = fechaCreacion;
     }
 }

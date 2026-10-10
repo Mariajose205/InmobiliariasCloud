@@ -48,6 +48,42 @@ services:
     networks:
       - inmob-red
 
+  # RabbitMQ: broker del flujo de informes (exchange fanout + direct, colas y
+  # DLQ). El 5672 (AMQP) queda interno; el 15672 (consola) se publica SOLO para
+  # administracion y deberia restringirse por Security Group en produccion.
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: inmobiliarias-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+      TZ: America/Santiago
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - inmob-red
+
+  # Servidor SMTP de desarrollo. Captura los correos de notificacion y de
+  # entrega del PDF sin enviarlos a internet. UI en http://localhost:8025.
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: inmobiliarias-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - inmob-red
+
   # El puerto 8081 se publica para que API Gateway lo alcance por el VPC Link.
   # El Security Group del EC2 debe dejar entrar el 8081 solo desde el VPC Link o
   # el NLB, nunca desde internet.
@@ -75,11 +111,22 @@ services:
       ADMIN_OID: ${ADMIN_OID}
       CORREDOR_EMAIL: ${CORREDOR_EMAIL}
       CORREDOR_OID: ${CORREDOR_OID}
+      # RabbitMQ del flujo de informes.
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-guest}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-guest}
+      # SMTP para notificaciones y entrega del PDF.
+      MAIL_HOST: mailhog
+      MAIL_PORT: 1025
+      INFORMES_DIR: /app/informes
       TZ: America/Santiago
     ports:
       - "8081:8081"
     depends_on:
       db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - inmob-red
@@ -90,3 +137,5 @@ networks:
 
 volumes:
   pgdata:
+  rabbitmq-data:
+    name: inmobiliarias-rabbitmq-data

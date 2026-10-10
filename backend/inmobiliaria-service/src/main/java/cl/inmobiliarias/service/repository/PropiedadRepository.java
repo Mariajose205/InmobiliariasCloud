@@ -9,7 +9,11 @@ import java.util.List;
 @Repository
 public interface PropiedadRepository extends JpaRepository<Propiedad, Long> {
 
-    List<Propiedad> findByCategoria(String categoria);
+    List<Propiedad> findByCategoriaIgnoreCase(String categoria);
 
     List<Propiedad> findByTipoOperacion(String tipoOperacion);
+
+    List<Propiedad> findByCreadoPorEmailIgnoreCase(String email);
+
+    List<Propiedad> findByCreadoPorOidIgnoreCase(String oid);
 }

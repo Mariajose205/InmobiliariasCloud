@@ -50,12 +50,12 @@ class PropiedadServiceTest {
 
     @Test
     void listarPorCategoriaFiltraLasPropiedades() {
-        when(repository.findByCategoria("Casa")).thenReturn(List.of(propiedad));
+        when(repository.findByCategoriaIgnoreCase("Casa")).thenReturn(List.of(propiedad));
 
         var resultado = service.listarPorCategoria("Casa");
 
         assertThat(resultado).hasSize(1);
-        verify(repository).findByCategoria("Casa");
+        verify(repository).findByCategoriaIgnoreCase("Casa");
     }
 
     @Test

@@ -23,6 +23,71 @@ spring:
       # H2 console habilitada solo para desarrollo local, accesible via loopback.
       enabled: true
       path: /h2-console
+  # Conexion a RabbitMQ (en dev corre con Docker en localhost).
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASS:guest}
+    listener:
+      simple:
+        # ACK manual: cada consumidor decide cuando confirmar o rechazar.
+        acknowledge-mode: manual
+        # Un mensaje a la vez por consumidor para procesar el PDF con calma.
+        prefetch: 1
+        default-requeue-rejected: false
+        # Reintentos con backoff antes de NACK y enviar a la DLQ.
+        retry:
+          enabled: true
+          initial-interval: 2000ms
+          max-attempts: 3
+          multiplier: 2.0
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USER:}
+    password: ${MAIL_PASS:}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+# ---------------------------------------------------------------------------
+# Configuracion centralizada de la mensajeria (nombres de colas, exchanges,
+# routing keys y DLQ). La consume RabbitProperties y la usan los @Bean de
+# RabbitMqConfig, el productor y los consumidores, evitando literales sueltos.
+# -----------------------------------------------------------------------------
+rabbitmq:
+  exchanges:
+    # Exchange fanout que replica la solicitud inicial a todos los suscriptores.
+    fanout: inmobiliaria.fanout
+    # Exchange direct que enruta el trabajo de generacion de PDF.
+    direct: inmobiliaria.direct
+    # Dead Letter Exchanges (destino de mensajes fallidos).
+    dlx: inmobiliaria.dlx
+  queues:
+    # Notificacion de que el pedido fue recibido y esta en proceso.
+    correos-notificaciones: cola.correos.notificaciones
+    # Generacion del informe PDF de propiedades.
+    pdf-procesamiento: cola.pdf.procesamiento
+    # Dead Letter Queues.
+    correos-notificaciones-dlq: cola.correos.notificaciones.dlq
+    pdf-procesamiento-dlq: cola.pdf.procesamiento.dlq
+  routing-keys:
+    # Ruta usada por el exchange direct para el trabajo de PDF.
+    pdf: informe.pdf.generar
+    # Rutas de enrutado hacia las DLQ.
+    correos-notificaciones-dlq: correos.notificaciones.dlq
+    pdf-procesamiento-dlq: pdf.procesamiento.dlq
+  admin:
+    # TTL de los mensajes en la DLQ (en ms); luego de eso expiran.
+    dlq-ttl: 600000
+
+informes:
+  # Directorio donde el consumidor de PDF deja los informes generados.
+  directorio: ${INFORMES_DIR:./informes}
 
 seguridad:
   # En desarrollo local no hay API Gateway delante, asi que no se exige identidad.

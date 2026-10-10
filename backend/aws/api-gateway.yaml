@@ -483,6 +483,58 @@ Resources:
       AuthorizationScopes:
         - !Ref AuthorizationScopeName
   # -------------------------------------------------------------------------
+  # Rutas del flujo asincrono de informes y de la administracion del broker.
+  #
+  # Se usa una ruta codiciosa {proxy+} por metodo para cubrir todos los
+  # endpoints nuevos sin declarar uno por uno; el microservicio sigue aplicando
+  # la matriz de permisos (el informe exige ADMIN o CORREDOR y /api/admin exige
+  # ADMIN). Todas van con AuthorizationType JWT: el access token de Azure Entra
+  # ID sigue siendo obligatorio, igual que en el resto de rutas privadas.
+  # -------------------------------------------------------------------------
+  RutaInformePdf:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: POST /api/informes/{proxy+}
+      Target: !Sub 'integrations/${MicroservicioPostIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+
+  RutaAdminGet:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/admin/{proxy+}
+      Target: !Sub 'integrations/${MicroservicioGetIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+
+  RutaAdminPost:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: POST /api/admin/{proxy+}
+      Target: !Sub 'integrations/${MicroservicioPostIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+
+  RutaAdminDelete:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: DELETE /api/admin/{proxy+}
+      Target: !Sub 'integrations/${MicroservicioDeleteIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+  # -------------------------------------------------------------------------
   # Stage en $default: la URL publica no lleva segmento de stage, que queda
   # https://{apiId}.execute-api.{region}.amazonaws.com/api/propiedades
   # -------------------------------------------------------------------------

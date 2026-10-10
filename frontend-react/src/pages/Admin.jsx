@@ -7,7 +7,8 @@ import {
   obtenerPropiedades,
   crearPropiedad,
   actualizarPropiedad,
-  eliminarPropiedad as eliminarPropiedadApi
+  eliminarPropiedad as eliminarPropiedadApi,
+  solicitarInformePdf
 } from '../api/apiClient';
 
 function Admin() {
@@ -32,6 +33,7 @@ function Admin() {
   const [archivosFotos, setArchivosFotos] = useState([]);
   const [previewFotos, setPreviewFotos] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [generandoInforme, setGenerandoInforme] = useState(false);
 
   useEffect(() => {
     cargarPropiedades();
@@ -164,6 +166,19 @@ function Admin() {
     }
   };
 
+  const solicitarInforme = async () => {
+    setGenerandoInforme(true);
+    try {
+      const respuesta = await solicitarInformePdf();
+      alert("✅ " + (respuesta?.mensaje
+        || "Solicitud enviada. El informe se generará y llegará por correo."));
+    } catch (err) {
+      alert("No se pudo solicitar el informe: " + (err.message || err));
+    } finally {
+      setGenerandoInforme(false);
+    }
+  };
+
   const eliminarPropiedad = async (idx) => {
     const target = propiedades[idx];
     if (confirm(`¿Estás seguro de eliminar permanentemente "${target.titulo}"?`)) {
@@ -275,6 +290,10 @@ function Admin() {
               <i className="bi bi-bar-chart-line-fill me-1"></i>Dashboard
             </Button>
           )}
+          <Button variant="outline-success" size="sm" onClick={solicitarInforme} disabled={generandoInforme}>
+            <i className="bi bi-file-earmark-pdf me-1"></i>
+            {generandoInforme ? 'Generando...' : 'Descargar Informe PDF'}
+          </Button>
           <Button variant="outline-primary" size="sm" onClick={() => navigate('/')}>
             <i className="bi bi-house-door me-1"></i>Ver Página Principal
           </Button>

@@ -20,7 +20,7 @@ public class PropiedadService {
     }
 
     public List<Propiedad> listarPorCategoria(String categoria) {
-        return repository.findByCategoria(categoria);
+        return repository.findByCategoriaIgnoreCase(categoria);
     }
 
     public Propiedad obtener(Long id) {

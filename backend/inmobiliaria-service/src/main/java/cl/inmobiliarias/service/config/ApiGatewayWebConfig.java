@@ -29,6 +29,8 @@ public class ApiGatewayWebConfig implements WebMvcConfigurer {
         registry.addInterceptor(identidadInterceptor)
                 .addPathPatterns("/api/propiedades/**")
                 .addPathPatterns("/api/auditoria/**")
-                .addPathPatterns("/api/me");
+                .addPathPatterns("/api/me")
+                .addPathPatterns("/api/informes/**")
+                .addPathPatterns("/api/admin/**");
     }
 }
