@@ -11,6 +11,40 @@ import {
   solicitarInformePdf
 } from '../api/apiClient';
 
+// Las fotos se guardan como base64 en la base de datos y viajan en el mismo
+// JSON al listar. API Gateway corta las respuestas de mas de ~10 MB, asi que
+// se reducen en el navegador antes de enviarlas: se reescalan a MAX_DIM px y se
+// recomprimen a JPEG. Una foto de celular de varios MB baja a unos cientos de KB.
+const MAX_DIM = 1600;
+const CALIDAD_JPEG = 0.72;
+
+const comprimirImagen = (archivo) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let { width, height } = img;
+        if (width >= height && width > MAX_DIM) {
+          height = Math.round((height * MAX_DIM) / width);
+          width = MAX_DIM;
+        } else if (height > width && height > MAX_DIM) {
+          width = Math.round((width * MAX_DIM) / height);
+          height = MAX_DIM;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', CALIDAD_JPEG));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(archivo);
+  });
+
 function Admin() {
   const { instance, accounts, inProgress } = useMsal();
   const navigate = useNavigate();
@@ -84,15 +118,7 @@ function Admin() {
   };
 
   const convertirArchivosABase64 = async (archivos) => {
-    const promesas = archivos.map(archivo => {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(archivo);
-      });
-    });
-    return Promise.all(promesas);
+    return Promise.all(archivos.map((archivo) => comprimirImagen(archivo)));
   };
 
   const handleSubmit = async (e) => {
