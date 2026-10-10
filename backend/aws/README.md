@@ -131,6 +131,15 @@ no agrega costo fijo al proyecto.
    | `DELETE /api/propiedades/{id}` | `azure-entra-jwt` | el mismo scope |
    | `GET /api/auditoria` | `azure-entra-jwt` | el mismo scope |
    | `GET /api/me` | `azure-entra-jwt` | el mismo scope |
+   | `POST /api/informes/{proxy+}` | `azure-entra-jwt` | el mismo scope |
+   | `GET /api/admin/{proxy+}` | `azure-entra-jwt` | el mismo scope |
+   | `POST /api/admin/{proxy+}` | `azure-entra-jwt` | el mismo scope |
+   | `DELETE /api/admin/{proxy+}` | `azure-entra-jwt` | el mismo scope |
+
+   > Las rutas `{proxy+}` cubren el informe de propiedades
+   > (`POST /api/informes/propiedades/pdf`) y la administracion del broker
+   > (`/api/admin/rabbitmq/...`). Siguen exigiendo el access token de Entra ID;
+   > el microservicio aplica ademas el rol (ADMIN/CORREDOR).
 
    > El scope es lo que impide que un ID Token (que no trae `scp`) o un token de
    > Microsoft Graph se usen como credencial de esta API.
