@@ -107,10 +107,12 @@ services:
       DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
       DB_USERNAME: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
-      ADMIN_EMAIL: ${ADMIN_EMAIL}
-      ADMIN_OID: ${ADMIN_OID}
-      CORREDOR_EMAIL: ${CORREDOR_EMAIL}
-      CORREDOR_OID: ${CORREDOR_OID}
+      # Con ${VAR:-default} se evita que una variable vacia (por ejemplo, un
+      # .env sin definir) deje a admin/corredor sin rol y provoque 403.
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-administrador@inmobiliariaduoc.onmicrosoft.com}
+      ADMIN_OID: ${ADMIN_OID:-5ce11c6e-c796-41eb-b8ed-1872878cd197}
+      CORREDOR_EMAIL: ${CORREDOR_EMAIL:-Corredor@InmobiliariaDuoc.onmicrosoft.com}
+      CORREDOR_OID: ${CORREDOR_OID:-0a73de94-2722-4221-836c-bd7f3af16980}
       # RabbitMQ del flujo de informes.
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
