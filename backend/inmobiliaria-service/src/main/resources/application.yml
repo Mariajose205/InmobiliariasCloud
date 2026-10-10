@@ -36,12 +36,11 @@ spring:
         # Un mensaje a la vez por consumidor para procesar el PDF con calma.
         prefetch: 1
         default-requeue-rejected: false
-        # Reintentos con backoff antes de NACK y enviar a la DLQ.
+        # El retry del framework queda desactivado: cada consumidor reintenta
+        # por su cuenta (Reintentos) y, al agotar, hace NACK(requeue=false)
+        # para que el DLX mueva el mensaje a la DLQ correspondiente.
         retry:
-          enabled: true
-          initial-interval: 2000ms
-          max-attempts: 3
-          multiplier: 2.0
+          enabled: false
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}

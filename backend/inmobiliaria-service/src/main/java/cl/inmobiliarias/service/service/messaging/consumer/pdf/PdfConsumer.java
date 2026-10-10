@@ -2,6 +2,7 @@ package cl.inmobiliarias.service.service.messaging.consumer.pdf;
 
 import cl.inmobiliarias.service.dto.InformeSolicitudMsg;
 import cl.inmobiliarias.service.service.InformeService;
+import cl.inmobiliarias.service.service.messaging.Reintentos;
 import com.rabbitmq.client.Channel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,12 +29,11 @@ import java.time.Instant;
  * propias si es CORREDOR), genera el PDF, lo guarda en disco y lo envia por
  * correo al solicitante.
  *
- * Gestion de confirmacion (ACK manual):
+ * Gestion de confirmacion (ACK manual) y errores:
  *   - Exito total -> basicAck.
- *   - Cualquier fallo (BD, generacion, escritura, correo) -> se relanza la
- *     excepcion: el contenedor reintenta hasta `max-attempts`; agotados, el
- *     mensaje se rechaza sin requeue y el DLX lo mueve a
- *     `cola.pdf.procesamiento.dlq`.
+ *   - Fallo temporal (BD, generacion, escritura, correo) -> se reintenta con
+ *     backoff (Reintentos); agotados, se hace basicNack(requeue=false) y el
+ *     DLX mueve el mensaje a `cola.pdf.procesamiento.dlq`.
  *
  * Un informe sin propiedades NO es un error: se genera un PDF que lo indica y
  * se confirma normalmente (evita bucles de reintento inutiles).
@@ -42,6 +42,10 @@ import java.time.Instant;
 public class PdfConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(PdfConsumer.class);
+
+    private static final int MAX_INTENTOS = 3;
+    private static final long INTERVALO_INICIAL_MS = 2000L;
+    private static final double MULTIPLICADOR = 2.0;
 
     private final InformeService informeService;
     private final JavaMailSender mailSender;
@@ -58,22 +62,30 @@ public class PdfConsumer {
     @RabbitListener(queues = "${rabbitmq.queues.pdf-procesamiento}")
     public void consumir(InformeSolicitudMsg mensaje,
                          Channel channel,
-                         @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) throws IOException {
+                         @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
         log.info("[PDF] Procesando solicitud de {} (rol={})",
                 mensaje.solicitadoPorEmail(), mensaje.rol());
         try {
-            byte[] pdf = informeService.generarPdf(mensaje);
-            Path archivo = guardar(pdf, mensaje);
-            enviarPorCorreo(mensaje, pdf, archivo);
+            Reintentos.conReintentos("PDF", MAX_INTENTOS, INTERVALO_INICIAL_MS, MULTIPLICADOR, log, () -> {
+                byte[] pdf = informeService.generarPdf(mensaje);
+                Path archivo = guardar(pdf, mensaje);
+                enviarPorCorreo(mensaje, pdf, archivo);
+            });
 
             channel.basicAck(deliveryTag, false);
-            log.info("[PDF] ACK tag={}. Informe de {} listo ({} bytes, {})",
-                    deliveryTag, mensaje.solicitadoPorEmail(), pdf.length, archivo);
+            log.info("[PDF] ACK tag={}. Informe de {} listo.", deliveryTag, mensaje.solicitadoPorEmail());
         } catch (Exception ex) {
-            log.error("[PDF] Error generando el informe de {} (tag={}). Se reintentara y, "
-                            + "si persiste, ira a la DLQ. Causa: {}",
-                    mensaje.solicitadoPorEmail(), deliveryTag, ex.getMessage(), ex);
-            throw ex;
+            log.error("[PDF] FALLO definitivo (tag={}): NACK a DLQ. Causa: {}",
+                    deliveryTag, ex.getMessage());
+            nack(deliveryTag, channel);
+        }
+    }
+
+    private void nack(long deliveryTag, Channel channel) {
+        try {
+            channel.basicNack(deliveryTag, false, false);
+        } catch (IOException ex) {
+            log.error("[PDF] No fue posible hacer NACK del tag={}: {}", deliveryTag, ex.getMessage(), ex);
         }
     }
 
