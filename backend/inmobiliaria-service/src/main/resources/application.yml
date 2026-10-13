@@ -31,8 +31,10 @@ spring:
     password: ${RABBITMQ_PASS:guest}
     listener:
       simple:
-        # ACK manual: cada consumidor decide cuando confirmar o rechazar.
-        acknowledge-mode: manual
+        # ACK automatico: el contenedor confirma al terminar el metodo sin
+        # excepcion. Si el consumidor agota sus reintentos y lanza, el
+        # contenedor rechaza sin requeue y el DLX mueve el mensaje a la DLQ.
+        acknowledge-mode: auto
         # Un mensaje a la vez por consumidor para procesar el PDF con calma.
         prefetch: 1
         default-requeue-rejected: false

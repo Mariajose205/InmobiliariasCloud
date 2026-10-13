@@ -2,17 +2,13 @@ package cl.inmobiliarias.service.service.messaging.consumer.notificacion;
 
 import cl.inmobiliarias.service.dto.InformeSolicitudMsg;
 import cl.inmobiliarias.service.service.messaging.Reintentos;
-import com.rabbitmq.client.Channel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
-
-import java.io.IOException;
 
 /**
  * Consumidor del dominio NOTIFICACIONES.
@@ -21,17 +17,18 @@ import java.io.IOException;
  * `inmobiliaria.fanout`) y avisa al usuario que su pedido de informe esta
  * siendo procesado.
  *
- * Estrategia de confirmacion y errores (ACK manual, configurado con
- * `spring.rabbitmq.listener.simple.acknowledge-mode=manual`):
+ * Estrategia de confirmacion y errores (ACK automatico, configurado con
+ * `spring.rabbitmq.listener.simple.acknowledge-mode=auto`):
  *
- *   - EXITO: se confirma con basicAck y el mensaje sale de la cola.
+ *   - EXITO: el contenedor confirma el mensaje automaticamente.
  *   - ERROR TRANSITORIO (SMTP caido, timeout, etc.): se reintenta con backoff
- *     (Reintentos). Agotados los reintentos, se hace
- *     basicNack(requeue=false) y el mensaje cae en la DLQ
+ *     (Reintentos). Agotados los intentos se lanza
+ *     AmqpRejectAndDontRequeueException y el mensaje cae en la DLQ
  *     `cola.correos.notificaciones.dlq` (ruteada por `inmobiliaria.dlx`).
  *
- * Los errores que escapan al metodo (p.ej. conversion del payload) los NACKa
- * el DlqErrorHandler configurado en el contenedor de listeners.
+ * Los errores que escapan al metodo (p.ej. conversion del payload) tambien se
+ * rechazan sin requeue por el contenedor (default-requeue-rejected=false) y
+ * terminan en la DLQ.
  */
 @Component
 public class NotificacionConsumer {
@@ -49,31 +46,18 @@ public class NotificacionConsumer {
     }
 
     @RabbitListener(queues = "${rabbitmq.queues.correos-notificaciones}")
-    public void consumir(InformeSolicitudMsg mensaje,
-                         Channel channel,
-                         @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
+    public void consumir(InformeSolicitudMsg mensaje) {
         log.info("[Notificacion] Recibido aviso para {} (rol={}, solicitud={})",
                 mensaje.solicitadoPorEmail(), mensaje.rol(), mensaje.solicitadoEn());
         try {
             Reintentos.conReintentos("Notificacion", MAX_INTENTOS, INTERVALO_INICIAL_MS, MULTIPLICADOR,
                     log, () -> enviarAvisoProcesando(mensaje));
-            // ACK explicito: solo confirmamos cuando el correo se envio.
-            channel.basicAck(deliveryTag, false);
-            log.info("[Notificacion] ACK tag={} (aviso enviado a {})",
-                    deliveryTag, mensaje.solicitadoPorEmail());
+            log.info("[Notificacion] Aviso enviado a {} (ACK automatico del contenedor).",
+                    mensaje.solicitadoPorEmail());
         } catch (Exception ex) {
-            // Reintentos agotados: NACK(requeue=false) para que el DLX mueva a la DLQ.
-            log.error("[Notificacion] FALLO definitivo (tag={}): NACK a DLQ. Causa: {}",
-                    deliveryTag, ex.getMessage());
-            nack(deliveryTag, channel);
-        }
-    }
-
-    private void nack(long deliveryTag, Channel channel) {
-        try {
-            channel.basicNack(deliveryTag, false, false);
-        } catch (IOException ex) {
-            log.error("[Notificacion] No fue posible hacer NACK del tag={}: {}", deliveryTag, ex.getMessage(), ex);
+            log.error("[Notificacion] FALLO definitivo para {}: se rechaza sin requeue y el mensaje ira a la DLQ. Causa: {}",
+                    mensaje.solicitadoPorEmail(), ex.getMessage());
+            throw new AmqpRejectAndDontRequeueException(ex);
         }
     }
 

@@ -7,14 +7,10 @@ import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.FanoutExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
-import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.util.ErrorHandler;
 
 /**
  * Declaracion de exchanges, colas y bindings del flujo de informes.
@@ -146,23 +142,5 @@ public class RabbitMqConfig {
     @Bean
     public MessageConverter jsonMessageConverter(ObjectMapper objectMapper) {
         return new Jackson2JsonMessageConverter(objectMapper);
-    }
-
-    /**
-     * Instala el {@link DlqErrorHandler} en el contenedor de listeners simple.
-     * Asi, los errores que escapan al metodo del consumidor (p.ej. conversion
-     * de un payload invalido) tambien terminan en la DLQ via NACK.
-     */
-    @Bean
-    public static BeanPostProcessor dlqErrorHandlerPostProcessor(ObjectProvider<ErrorHandler> dlqErrorHandler) {
-        return new BeanPostProcessor() {
-            @Override
-            public Object postProcessAfterInitialization(Object bean, String beanName) {
-                if (bean instanceof SimpleRabbitListenerContainerFactory factory) {
-                    factory.setErrorHandler(dlqErrorHandler.getObject());
-                }
-                return bean;
-            }
-        };
     }
 }
