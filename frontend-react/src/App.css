@@ -501,3 +501,18 @@ footer p {
         height: 200px;
     }
 }
+
+/* ===== WISHLIST / FAVORITOS Y ALERTAS ===== */
+.btn-favorito-activo {
+    font-weight: 700;
+}
+
+.wishlist-table td {
+    vertical-align: middle;
+}
+
+.comuna-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+}

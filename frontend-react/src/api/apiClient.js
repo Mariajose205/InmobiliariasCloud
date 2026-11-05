@@ -148,3 +148,81 @@ export function solicitarInformePdf() {
     method: 'POST'
   });
 }
+
+/**
+ * Comunas disponibles para favoritos y alertas de nuevas propiedades.
+ * Lista local de respaldo; el backend puede entregar la lista oficial
+ * via GET /api/wishlist/comunas.
+ */
+export const COMUNAS = [
+  'Quillota',
+  'Viña del Mar',
+  'Quilpué',
+  'Villa Alemana',
+  'El Belloto',
+  'La Cruz',
+  'Calera',
+  'Valparaíso'
+];
+
+/**
+ * Extrae la comuna desde un texto de ubicacion libre, con comparacion
+ * case-insensitive y sin tildes (coincide con la normalizacion del backend).
+ */
+export function extraerComunaLocal(ubicacion) {
+  if (!ubicacion) return null;
+  const sinTildes = (texto) =>
+    String(texto)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ');
+  const texto = sinTildes(ubicacion);
+  return COMUNAS.find((comuna) => texto.includes(sinTildes(comuna))) || null;
+}
+
+export function obtenerFavoritos() {
+  return apiFetchAutenticado('/api/wishlist/favoritos');
+}
+
+export function agregarFavorito(datos) {
+  return apiFetchAutenticado('/api/wishlist/favoritos', {
+    method: 'POST',
+    body: JSON.stringify(datos)
+  });
+}
+
+export function eliminarFavorito(propiedadId) {
+  return apiFetchAutenticado(`/api/wishlist/favoritos/${propiedadId}`, {
+    method: 'DELETE'
+  });
+}
+
+export function obtenerAlertas() {
+  return apiFetchAutenticado('/api/wishlist/alertas');
+}
+
+export function seguirComuna(comuna) {
+  return apiFetchAutenticado('/api/wishlist/alertas', {
+    method: 'POST',
+    body: JSON.stringify({ comuna })
+  });
+}
+
+export function dejarDeSeguirComuna(comuna) {
+  return apiFetchAutenticado(`/api/wishlist/alertas/${encodeURIComponent(comuna)}`, {
+    method: 'DELETE'
+  });
+}
+
+export async function obtenerComunas() {
+  try {
+    const datos = await apiFetchAutenticado('/api/wishlist/comunas');
+    if (Array.isArray(datos) && datos.length > 0) return datos;
+    if (datos && Array.isArray(datos.comunas) && datos.comunas.length > 0) return datos.comunas;
+    return COMUNAS;
+  } catch (_) {
+    return COMUNAS;
+  }
+}

@@ -1,8 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Button, Card, Badge } from 'react-bootstrap';
+import { useMsal } from '@azure/msal-react';
+import { haySesion } from '../msalConfig';
+import {
+  obtenerFavoritos,
+  obtenerAlertas,
+  agregarFavorito,
+  eliminarFavorito,
+  seguirComuna,
+  extraerComunaLocal
+} from '../api/apiClient';
 
 const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
+  const { accounts } = useMsal();
+  const isLoggedIn = accounts.length > 0 || haySesion();
   const [currentImages, setCurrentImages] = useState({});
+  const [favoritosIds, setFavoritosIds] = useState(new Set());
+  const [alertas, setAlertas] = useState(new Set());
+  const [cargandoFavoritos, setCargandoFavoritos] = useState(true);
+
+  // Carga inicial de favoritos y alertas cuando hay sesion. Silencia errores
+  // para no romper el catalogo publico si el backend no esta disponible.
+  useEffect(() => {
+    const cargarWishlist = async () => {
+      if (!isLoggedIn) {
+        setCargandoFavoritos(false);
+        return;
+      }
+      try {
+        const favoritosData = await obtenerFavoritos();
+        const lista = Array.isArray(favoritosData)
+          ? favoritosData
+          : (favoritosData?.favoritos || []);
+        const ids = new Set(
+          lista
+            .map((item) => item?.propiedadId ?? item?.id ?? item)
+            .filter((valor) => valor !== null && valor !== undefined && valor !== '')
+            .map((valor) => String(valor))
+        );
+        setFavoritosIds(ids);
+      } catch (_) {
+        // Error silencioso: el catalogo funciona igual sin wishlist.
+      }
+      try {
+        const alertasData = await obtenerAlertas();
+        const lista = Array.isArray(alertasData)
+          ? alertasData
+          : (alertasData?.alertas || alertasData?.comunas || []);
+        const comunas = new Set(
+          lista
+            .map((item) => (typeof item === 'string' ? item : item?.comuna ?? item?.nombre ?? null))
+            .filter((valor) => valor)
+        );
+        setAlertas(comunas);
+      } catch (_) {
+        // Error silencioso.
+      }
+      setCargandoFavoritos(false);
+    };
+    cargarWishlist();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const formatearPrecio = (precio) => {
     const num = parseInt(String(precio).replace(/\./g, '')) || 0;
@@ -39,6 +97,54 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
     const sufijo = propiedad.tipoPrecio || "/ Valor Total";
     const textoMensaje = `Hola, me interesa la propiedad ("${propiedad.tipoOperacion}") publicada: "${propiedad.titulo}" con un valor de ${formatearPrecio(propiedad.precio)} ${sufijo}. Me gustaría recibir más información.`;
     return `https://wa.me/${numeroTelefono}?text=${encodeURIComponent(textoMensaje)}`;
+  };
+
+  const toggleFavorito = async (p) => {
+    if (!isLoggedIn) {
+      alert("Inicia sesión para guardar favoritos");
+      return;
+    }
+    const yaEsFavorito = favoritosIds.has(String(p.id));
+    try {
+      if (yaEsFavorito) {
+        await eliminarFavorito(p.id);
+        setFavoritosIds((prev) => {
+          const siguiente = new Set(prev);
+          siguiente.delete(String(p.id));
+          return siguiente;
+        });
+      } else {
+        await agregarFavorito({
+          propiedadId: p.id,
+          titulo: p.titulo,
+          precio: p.precio,
+          tipoPrecio: p.tipoPrecio,
+          ubicacion: p.ubicacion
+        });
+        setFavoritosIds((prev) => new Set(prev).add(String(p.id)));
+        // El backend crea automaticamente la alerta de la comuna.
+        const comuna = extraerComunaLocal(p.ubicacion);
+        if (comuna) {
+          setAlertas((prev) => new Set(prev).add(comuna));
+        }
+      }
+    } catch (error) {
+      alert(error.message || 'No se pudo actualizar el favorito');
+    }
+  };
+
+  const seguirComunaDePropiedad = async (comuna) => {
+    if (!isLoggedIn) {
+      alert("Inicia sesión para guardar favoritos");
+      return;
+    }
+    if (!comuna) return;
+    try {
+      await seguirComuna(comuna);
+      setAlertas((prev) => new Set(prev).add(comuna));
+    } catch (error) {
+      alert(error.message || 'No se pudo seguir la comuna');
+    }
   };
 
   return (
@@ -115,6 +221,9 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
             ) : '';
 
             const sufijo = propiedad.tipoPrecio || "/ Valor Total";
+            const comunaLocal = extraerComunaLocal(propiedad.ubicacion);
+            const esFavorito = favoritosIds.has(String(propiedad.id));
+            const siguiendoComuna = comunaLocal ? alertas.has(comunaLocal) : false;
 
             return (
               <Col key={propiedad.id} xs={12} sm={6} md={4} lg={4}>
@@ -199,6 +308,29 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
                     >
                       <i className="bi bi-whatsapp me-2"></i>Contactar
                     </a>
+
+                    <div className="d-flex gap-2 mt-2">
+                      <Button
+                        size="sm"
+                        variant={esFavorito ? 'danger' : 'outline-danger'}
+                        className={`flex-fill${esFavorito ? ' btn-favorito-activo' : ''}`}
+                        onClick={() => toggleFavorito(propiedad)}
+                      >
+                        <i className={`bi ${esFavorito ? 'bi-heart-fill' : 'bi-heart'} me-1`}></i>
+                        {esFavorito ? 'Favorito' : 'Guardar'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline-primary"
+                        className="flex-fill"
+                        disabled={!comunaLocal || siguiendoComuna}
+                        title={!comunaLocal ? 'No se detectó la comuna en la ubicación' : (siguiendoComuna ? `Siguiendo ${comunaLocal}` : `Avisarme de ${comunaLocal}`)}
+                        onClick={() => seguirComunaDePropiedad(comunaLocal)}
+                      >
+                        <i className={`bi ${siguiendoComuna ? 'bi-bell-fill' : 'bi-bell'} me-1`}></i>
+                        {siguiendoComuna ? `Siguiendo ${comunaLocal}` : (comunaLocal ? `Avisarme de ${comunaLocal}` : 'Avisarme')}
+                      </Button>
+                    </div>
                   </Card.Body>
                 </Card>
               </Col>

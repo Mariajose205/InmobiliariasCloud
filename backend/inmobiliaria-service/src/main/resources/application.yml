@@ -43,6 +43,29 @@ spring:
         # para que el DLX mueva el mensaje a la DLQ correspondiente.
         retry:
           enabled: false
+  # Conexion a Kafka (evento PropiedadCreada -> wishlist-service).
+  # En Docker Compose el broker es el servicio "kafka" (KRaft, sin Zookeeper);
+  # HOST implicito: kafka:9092. En dev local se antepone localhost por defecto.
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      # Clave (key) = comuna normalizada (Quillota, Vina del Mar, ...).
+      # Kafka enruta todos los mensajes de la misma comuna siempre a la misma
+      # particion, lo que permite paralelismo sin ordenamiento cruzado.
+      # Serializer: String para la clave (comuna) y JSON tipado para el valor.
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      enable-idempotence: true
+      properties:
+        # JsonSerializer incluye el Tipo Java en el header; listar DTO permitidos.
+        spring.json.trusted.packages: "cl.inmobiliarias.service.dto"
+        spring.json.add.type.headers: true
+    admin:
+      # Los topicos (particiones/retencion/cleanup) se declaran en
+      # KafkaNewTopicConfig. El admin los crea al arrancar el servicio.
+      auto-create: true
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
@@ -85,6 +108,16 @@ rabbitmq:
   admin:
     # TTL de los mensajes en la DLQ (en ms); luego de eso expiran.
     dlq-ttl: 600000
+
+# Topicos Kafka del flujo "nueva propiedad -> aviso por comuna"
+# (ver DTO PropiedadCreadaEvent, KafkaNewTopicConfig y el microservicio
+# wishlist-service en backend/wishlist-service).
+app.kafka:
+  topics:
+    propiedades-nuevas: propiedades-nuevas
+    notificaciones-sistema: notificaciones-sistema
+    propiedades-nuevas-dlq: propiedades-nuevas.dlq
+    notificaciones-sistema-dlq: notificaciones-sistema.dlq
 
 informes:
   # Directorio donde el consumidor de PDF deja los informes generados.

@@ -45,6 +45,13 @@ const Navbar = () => {
             <Nav.Item>
               <Nav.Link href="#contacto">Contacto</Nav.Link>
             </Nav.Item>
+            {isLoggedIn && (
+              <Nav.Item>
+                <Nav.Link as={Link} to="/wishlist">
+                  <i className="bi bi-heart-fill me-1"></i>Mis favoritos
+                </Nav.Link>
+              </Nav.Item>
+            )}
             {puedeUsarPanel && (
               <Nav.Item>
                 <Nav.Link as={Link} to="/admin">

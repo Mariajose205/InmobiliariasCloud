@@ -41,6 +41,14 @@
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
 
+        <!-- Mensajeria asincrona con Kafka (evento PropiedadCreada -> wishlist-service).
+             Los topicos (propiedades-nuevas, notificaciones-sistema) se crean con
+             particiones y retencion definidas en KafkaNewTopicConfig. -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
         <!-- Envio de correos de notificacion ("tu pedido esta siendo procesado")
              y entrega del informe PDF generado. -->
         <dependency>

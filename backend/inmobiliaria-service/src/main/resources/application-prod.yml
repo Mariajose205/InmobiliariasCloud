@@ -30,6 +30,9 @@ spring:
     console:
       enabled: false
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+
 seguridad:
   # Con esto activo, una peticion que llegue sin identidad se rechaza. Como API
   # Gateway siempre la inyecta en las peticiones autorizadas, la ausencia de

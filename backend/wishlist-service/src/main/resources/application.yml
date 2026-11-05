@@ -1,0 +1,87 @@
+server:
+  port: 8082
+  # IMPORTANTE: el microservicio NO esta expuesto publicamente.
+  # Solo escucha en la interfaz de loopback (local) del servidor.
+  # El acceso publico se realiza unicamente a traves del API Gateway de AWS,
+  # que es quien valida el token de Azure Entra ID antes de reenviar la peticion.
+  address: 127.0.0.1
+
+spring:
+  application:
+    name: wishlist-service
+  datasource:
+    url: jdbc:h2:mem:wishlist;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  h2:
+    console:
+      # H2 console habilitada solo para desarrollo local, accesible via loopback.
+      enabled: true
+      path: /h2-console
+  # Conexion a Kafka (evento PropiedadCreada -> wishlist-service).
+  # En dev local el broker corre con Docker en localhost:9092.
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      # Clave (key) = comuna normalizada (Quillota, Vina del Mar, ...).
+      # Kafka enruta todos los mensajes de la misma comuna siempre a la misma
+      # particion, lo que permite paralelismo sin ordenamiento cruzado.
+      # Serializer: String para la clave (comuna) y JSON tipado para el valor.
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      enable-idempotence: true
+      properties:
+        # JsonSerializer incluye el Tipo Java en el header; listar DTO permitidos.
+        spring.json.trusted.packages: "cl.inmobiliarias.wishlist.dto"
+        spring.json.add.type.headers: true
+    consumer:
+      group-id: wishlist-notifier-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      ack-mode: MANUAL
+      enable-auto-commit: false
+      properties:
+        # JsonDeserializer solo puede instanciar DTO de este paquete.
+        spring.json.trusted.packages: "cl.inmobiliarias.wishlist.dto"
+        spring.json.value.default.type: cl.inmobiliarias.wishlist.dto.PropiedadCreadaEvent
+    admin:
+      # Los topicos (particiones/retencion/cleanup) se declaran en
+      # KafkaNewTopicConfig. El admin los crea al arrancar el servicio.
+      auto-create: true
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USER:}
+    password: ${MAIL_PASS:}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+# Topicos Kafka del flujo "nueva propiedad -> aviso por comuna"
+# (ver DTO PropiedadCreadaEvent, KafkaNewTopicConfig y PropiedadNuevaNotificador).
+# Los nombres se leen desde KafkaProperties para evitar literales sueltos.
+app.kafka:
+  topics:
+    propiedades-nuevas: propiedades-nuevas
+    notificaciones-sistema: notificaciones-sistema
+    propiedades-nuevas-dlq: propiedades-nuevas.dlq
+    notificaciones-sistema-dlq: notificaciones-sistema.dlq
+
+seguridad:
+  # En desarrollo local no hay API Gateway delante, asi que no se exige identidad.
+  # En produccion esto se activa (ver application-prod.yml).
+  autorizacion-requerida: false
+  admin-email: administrador@inmobiliariaduoc.onmicrosoft.com
+  admin-oid: 5ce11c6e-c796-41eb-b8ed-1872878cd197
+  corredor-email: Corredor@InmobiliariaDuoc.onmicrosoft.com
+  corredor-oid: 0a73de94-2722-4221-836c-bd7f3af16980
