@@ -11,6 +11,7 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.config.TopicConfig;
+import org.apache.kafka.common.ConsumerGroupState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -70,7 +71,7 @@ public class KafkaAdminService {
     public TopicInfoResponse describirTopico(String nombre) {
         try (AdminClient admin = adminClient()) {
             Map<String, TopicDescription> descripciones = admin.describeTopics(List.of(nombre))
-                    .allTopicDescriptions().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                    .allTopicNames().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
             TopicDescription descripcion = descripciones.get(nombre);
             if (descripcion == null) {
                 throw new RuntimeException("Topico no encontrado: " + nombre);
@@ -85,8 +86,13 @@ public class KafkaAdminService {
             // Valores por defecto de retencion/cleanup si el broker no los listo.
             configs.putIfAbsent(TopicConfig.RETENTION_MS_CONFIG, "604800000");
             configs.putIfAbsent(TopicConfig.CLEANUP_POLICY_CONFIG, "delete");
+            // TopicDescription no expone el factor de replicacion directamente:
+            // se deduce de las replicas de la primera particion.
+            short factorReplicacion = descripcion.partitions().isEmpty()
+                    ? 0
+                    : (short) descripcion.partitions().get(0).replicas().size();
             return new TopicInfoResponse(nombre, descripcion.partitions().size(),
-                    descripcion.replicationFactor(), configs);
+                    factorReplicacion, configs);
         } catch (RuntimeException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -98,12 +104,13 @@ public class KafkaAdminService {
     /** Crea un topico con valores por defecto si no se indican. */
     public TopicInfoResponse crearTopico(TopicRequest request) {
         int particiones = request.getParticiones() != null ? request.getParticiones() : 3;
-        short factor = request.getFactorReplicacion() != null ? request.getFactorReplicacion() : (short) 1;
+        short factor = request.getFactorReplicacion() != null
+                ? request.getFactorReplicacion().shortValue() : (short) 1;
         long retencion = request.getRetencionMs() != null ? request.getRetencionMs() : 604800000L;
         String cleanup = request.getCleanupPolicy() != null && !request.getCleanupPolicy().isBlank()
                 ? request.getCleanupPolicy() : "delete";
         Map<String, String> configs = Map.of("retention.ms", String.valueOf(retencion), "cleanup.policy", cleanup);
-        NewTopic topic = new NewTopic(request.getNombre(), particiones, factor, configs);
+        NewTopic topic = new NewTopic(request.getNombre(), particiones, factor).configs(configs);
         try (AdminClient admin = adminClient()) {
             admin.createTopics(List.of(topic)).all().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
             log.info("Topico creado: {} (particiones={}, factor={})", request.getNombre(), particiones, factor);
@@ -129,10 +136,11 @@ public class KafkaAdminService {
     public List<ConsumerGroupInfoResponse> listarGrupos() {
         try (AdminClient admin = adminClient()) {
             Collection<ConsumerGroupListing> grupos = admin.listConsumerGroups()
-                    .all().get(TIMEOUT_SECONDS, TimeUnit.SECONDS).values();
+                    .all().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
             List<ConsumerGroupInfoResponse> resultado = new ArrayList<>();
             for (ConsumerGroupListing listing : grupos) {
-                resultado.add(new ConsumerGroupInfoResponse(listing.groupId(), listing.state().name(), 0, List.of()));
+                String estado = listing.state().map(ConsumerGroupState::name).orElse("UNKNOWN");
+                resultado.add(new ConsumerGroupInfoResponse(listing.groupId(), estado, 0, List.of()));
             }
             return resultado;
         } catch (Exception ex) {
@@ -145,13 +153,13 @@ public class KafkaAdminService {
     public ConsumerGroupInfoResponse describirGrupo(String groupId) {
         try (AdminClient admin = adminClient()) {
             Map<String, ConsumerGroupDescription> descripciones = admin.describeConsumerGroups(List.of(groupId))
-                    .allConsumerGroupDescriptions().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                    .all().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
             ConsumerGroupDescription descripcion = descripciones.get(groupId);
             if (descripcion == null) {
                 throw new RuntimeException("Grupo no encontrado: " + groupId);
             }
-            Set<String> topics = descripcion.assignedPartitions().values().stream()
-                    .flatMap(col -> col.stream())
+            Set<String> topics = descripcion.members().stream()
+                    .flatMap(miembro -> miembro.assignment().topicPartitions().stream())
                     .map(org.apache.kafka.common.TopicPartition::topic)
                     .collect(Collectors.toSet());
             // Si nadie tiene asignacion (grupo sin miembros), se listan los

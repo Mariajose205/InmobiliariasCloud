@@ -10,12 +10,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.listener.ConcurrentKafkaListenerContainerFactory;
-import org.springframework.kafka.listener.ContainerFactory;
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
-import org.springframework.util.backoff.FixedBackOffInterval;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -55,11 +56,23 @@ public class KafkaConsumerConfig {
         // Grupo por defecto; cada @KafkaListener puede definir el suyo.
         props.put(GROUP_ID_CONFIG, "wishlist-notifier-group");
         props.put(KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        // ErrorHandlingDeserializer evita que un mensaje corrupto bloquee el
+        // consumidor en un bucle: el error se entrega al DefaultErrorHandler y
+        // termina en la DLQ.
+        props.put(VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
         props.put(ENABLE_AUTO_COMMIT_CONFIG, false);
         // JsonDeserializer solo puede instanciar DTO de este paquete.
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "cl.inmobiliarias.wishlist.dto");
         props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "cl.inmobiliarias.wishlist.dto.PropiedadCreadaEvent");
+        // inmobiliaria-service publica su PROPIO DTO (mismo JSON, distinto
+        // paquete Java) y JsonSerializer incluye el nombre de clase en la
+        // cabecera de tipo. Sin este mapeo el consumidor rechazaria el mensaje
+        // por no estar en los paquetes de confianza y no se generaria ninguna
+        // novedad/alerta. El mapeo traduce el tipo del productor al DTO local.
+        props.put(JsonDeserializer.TYPE_MAPPINGS,
+                "cl.inmobiliarias.service.dto.PropiedadCreadaEvent:"
+                        + "cl.inmobiliarias.wishlist.dto.PropiedadCreadaEvent");
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
@@ -92,7 +105,7 @@ public class KafkaConsumerConfig {
             DeadLetterPublishingRecoverer deadLetterPublishingRecoverer) {
         // Reintenta 3 veces esperando 2 segundos entre intentos y, si sigue
         // fallando, el recoverer lo publica en la DLQ correspondiente.
-        return new DefaultErrorHandler(deadLetterPublishingRecoverer, new FixedBackOffInterval(2000L, 3));
+        return new DefaultErrorHandler(deadLetterPublishingRecoverer, new FixedBackOff(2000L, 3));
     }
 
     @Bean(name = "kafkaListenerContainerFactory")
@@ -103,7 +116,7 @@ public class KafkaConsumerConfig {
         factory.setConsumerFactory(consumerFactory);
         // ACK manual: cada consumidor llama a ack.acknowledge() solo cuando
         // termina. Esto evita perder mensajes si el proceso cae a mitad.
-        factory.setAckMode(ContainerFactory.AckMode.MANUAL);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
         // Los errores de deserializacion y de negocio pasan por el recoverer
         // que lleva a la DLQ segun el topic de origen.
         factory.setCommonErrorHandler(defaultErrorHandler);

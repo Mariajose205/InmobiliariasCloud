@@ -19,7 +19,7 @@ import java.time.Instant;
  * inmobiliaria-service en cada peticion.
  */
 @Entity
-@Table(name = "wishlist_favoritos", uniqueConstraints = @UniqueConstraint({"usuario_email", "propiedad_id"}))
+@Table(name = "wishlist_favoritos", uniqueConstraints = @UniqueConstraint(columnNames = {"usuario_email", "propiedad_id"}))
 public class Favorito {
 
     @Id

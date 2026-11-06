@@ -20,7 +20,9 @@ Y se agregó una pieza: la **matriz de roles** se movió al microservicio
 
 ```
 Navegador ──HTTPS──> API Gateway (HTTP API) ──VPC Link──> inmobiliaria-service :8081 ──> PostgreSQL
-   (Entra ID)          CORS + JWT nativo                    matriz de roles + auditoría
+   (Entra ID)          CORS + JWT nativo          │
+                                                   └────> wishlist-service :8082 ──────> PostgreSQL + Kafka
+                                                          (favoritos, alertas, novedades)
 ```
 
 Lo que hace cada capa:
@@ -28,6 +30,8 @@ Lo que hace cada capa:
 - **API Gateway**: CORS, validación del access token de Azure Entra ID, throttling,
   logs de acceso, y reenvío de la identidad del usuario en cabeceras.
 - **`inmobiliaria-service`**: decide qué puede hacer cada rol y registra la auditoría.
+- **`wishlist-service`**: favoritos, alertas por comuna y novedades; consume Kafka
+  y comparte PostgreSQL con el servicio de propiedades.
 
 ---
 
@@ -69,8 +73,10 @@ corre en un EC2 hay que habilitar la red privada. Esta es la parte que más trab
 da y la que conviene tener clara antes de desplegar.
 
 1. **Ambos EC2 en la misma VPC.** Si están en VPC distintas, no hay VPC Link posible.
-2. **Security Group del EC2 de backend**: permitir entrada al puerto **8081**
-   únicamente desde el CIDR de la VPC. **Nunca** `0.0.0.0/0` en 8081.
+2. **Security Group del EC2 de backend**: permitir entrada a los puertos **8081
+   y 8082** únicamente desde el CIDR de la VPC. **Nunca** `0.0.0.0/0` en 8081 ni
+   8082. El 8082 corresponde a `wishlist-service`; si falta, su target group queda
+   *unhealthy* y API Gateway responde `503` en todo `/api/wishlist/*`.
 3. **Dos subnets en AZ distintas** para las ENIs del VPC Link.
 
 ### El NLB no es opcional: lo exige API Gateway
@@ -84,10 +90,12 @@ un listener de NLB o ALB, o de un servicio de AWS Cloud Map:
 
 Por eso la plantilla **crea el NLB, el target group y el listener**, y las
 integraciones usan `!Ref BackendListener`. Solo hay que entregarle el
-`BackendInstanceId` del EC2.
+`BackendInstanceId` del EC2. Para `wishlist-service` la plantilla crea un
+segundo NLB/target group/listener en el puerto 8082 (`WishlistListener`).
 
 ```
-API Gateway ──VPC Link──> NLB interno (TCP 8081) ──> EC2:8081
+API Gateway ──VPC Link──> NLB interno (TCP 8081) ──> EC2:8081 inmobiliaria-service
+             └──────────> NLB interno (TCP 8082) ──> EC2:8082 wishlist-service
                             target group + health check TCP
 ```
 
@@ -104,7 +112,7 @@ no agrega costo fijo al proyecto.
 ### Opción A — Consola de AWS
 
 1. **EC2 → Security Groups** → edita el SG del EC2 de backend → entrada TCP 8081
-   desde el VPC Link o el NLB. Verifica que no haya una regla `0.0.0.0/0`.
+   y 8082 desde el VPC Link o el NLB. Verifica que no haya una regla `0.0.0.0/0`.
 2. **VPC → VPC Links** → *Create VPC link*
    - Name: `InmobiliariaVpcLink`
    - Subnets: las dos subnets privadas de AZ distintas
@@ -135,6 +143,18 @@ no agrega costo fijo al proyecto.
    | `GET /api/admin/{proxy+}` | `azure-entra-jwt` | el mismo scope |
    | `POST /api/admin/{proxy+}` | `azure-entra-jwt` | el mismo scope |
    | `DELETE /api/admin/{proxy+}` | `azure-entra-jwt` | el mismo scope |
+   | `GET /api/wishlist/comunas` | **None** | — |
+   | `GET /api/wishlist/favoritos` | `azure-entra-jwt` | el mismo scope |
+   | `POST /api/wishlist/favoritos` | `azure-entra-jwt` | el mismo scope |
+   | `DELETE /api/wishlist/favoritos/{propiedadId}` | `azure-entra-jwt` | el mismo scope |
+   | `GET /api/wishlist/alertas` | `azure-entra-jwt` | el mismo scope |
+   | `POST /api/wishlist/alertas` | `azure-entra-jwt` | el mismo scope |
+   | `DELETE /api/wishlist/alertas/{comuna}` | `azure-entra-jwt` | el mismo scope |
+   | `GET /api/wishlist/novedades` | `azure-entra-jwt` | el mismo scope |
+   | `DELETE /api/wishlist/novedades/{id}` | `azure-entra-jwt` | el mismo scope |
+   | `GET /api/admin/kafka/{proxy+}` | `azure-entra-jwt` | el mismo scope |
+   | `POST /api/admin/kafka/{proxy+}` | `azure-entra-jwt` | el mismo scope |
+   | `DELETE /api/admin/kafka/{proxy+}` | `azure-entra-jwt` | el mismo scope |
 
    > Las rutas `{proxy+}` cubren el informe de propiedades
    > (`POST /api/informes/propiedades/pdf`) y la administracion del broker
@@ -147,8 +167,11 @@ no agrega costo fijo al proyecto.
 6. **Integrations** — una por método (GET, POST, PUT, DELETE), tipo
    **HTTP proxy**, VPC link `InmobiliariaVpcLink`, *Payload format* `1.0`, y:
 
-   - *Target service*: **ALB/NLB** → el listener del NLB interno en el 8081.
-     No se puede escribir una IP: la API exige el ARN del listener.
+   - *Target service*: **ALB/NLB** → el listener del NLB interno en el 8081
+     (`BackendListener`) para `/api/propiedades*`, `/api/informes*` y
+     `/api/admin/*`; y el listener del NLB en el 8082 (`WishlistListener`) para
+     `/api/wishlist/*` y `/api/admin/kafka/*`. No se puede escribir una IP: la API
+     exige el ARN del listener.
    - *Request parameters*, con el formato `<accion>:<ubicacion>.<nombre>`:
 
    | Clave | Valor |
@@ -247,6 +270,8 @@ Con token real, en la consola del navegador:
 | `401` en todo, incluso con token bueno | `iss` distinto al esperado | Los **access tokens** de Entra ID usan `iss = https://sts.windows.net/<tenant>/` (con barra final); los ID tokens usan `.../v2.0`. Ajusta el parámetro `AzureIssuer` a la URL de `sts.windows.net`. |
 | `403` con `"Missing authentication token"` | `AuthorizationScopes` no calza con el `scp` del token | El scope en el token viaja en forma corta (`access_as_user`). Confirma `AuthorizationScopeName` = `access_as_user` (NO la URI `api://.../access_as_user`). |
 | `504` / `Integration timeout` | El NLB no alcanza al backend | Revisa el SG del EC2 (TCP 8081 desde `VpcCidr`) y, en **Target Groups**, que el target esté `healthy`. |
+| `503 Service Unavailable` en `/api/wishlist/*` (incluido `/comunas`, que es público) | El NLB de wishlist no tiene targets sanos | Verifica que el contenedor `wishlist-service` exista y esté corriendo en el EC2 (`docker compose -p backend ps`), que escuche en `8082` y que el SG permita TCP 8082 desde `VpcCidr`. En **Target Groups → inmob-wishlist-tg-v1 → Targets** el target debe estar `healthy`. |
+| Target `unhealthy` en el NLB de wishlist | La imagen `wishlist-service` no existe, el contenedor no arrancó o el SG bloquea el 8082 | El workflow `backend.yml` debe construir y subir `mariacarrero/wishlist-service:latest`; el compose de infra debe declarar el servicio (Kafka + wishlist). Revisa `docker compose -p backend logs wishlist-service`. |
 | Target `unhealthy` en el NLB | El contenedor no escucha en el 8081 o el SG lo bloquea | `docker compose logs inmobiliaria-service`. Verifica que en el compose el puerto siga publicado como `8081:8081`. |
 | `Unsupported property [VpcLinkId]` | Se uso la propiedad vieja | En `AWS::ApiGatewayV2::Integration` la propiedad se llama `ConnectionId`, no `VpcLinkId`. |
 | `Invalid template parameter property 'MinItems'` | `MinItems`/`MaxItems` no existen para parámetros | Solo aplican a propiedades de recursos. En un `List<...>` el requisito de "2 subnets" lo valida el propio VPC Link al crearse. |

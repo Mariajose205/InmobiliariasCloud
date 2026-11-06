@@ -44,13 +44,20 @@ spring:
     consumer:
       group-id: wishlist-notifier-group
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       ack-mode: MANUAL
       enable-auto-commit: false
       properties:
+        # Deserializador real envuelto por ErrorHandlingDeserializer: un mensaje
+        # corrupto no bloquea el consumidor, se deriva a la DLQ.
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
         # JsonDeserializer solo puede instanciar DTO de este paquete.
         spring.json.trusted.packages: "cl.inmobiliarias.wishlist.dto"
         spring.json.value.default.type: cl.inmobiliarias.wishlist.dto.PropiedadCreadaEvent
+        # inmobiliaria-service publica su propio DTO (mismo JSON, otro paquete).
+        # Este mapeo traduce el tipo del header al DTO local de wishlist.
+        spring.json.type.mapping: >-
+          cl.inmobiliarias.service.dto.PropiedadCreadaEvent:cl.inmobiliarias.wishlist.dto.PropiedadCreadaEvent
     admin:
       # Los topicos (particiones/retencion/cleanup) se declaran en
       # KafkaNewTopicConfig. El admin los crea al arrancar el servicio.

@@ -1,8 +1,8 @@
 package cl.inmobiliarias.wishlist.config.kafka;
 
+import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.kafka.config.NewTopic;
 
 /**
  * Declaracion de los topicos Kafka del flujo.
@@ -28,8 +28,8 @@ public class KafkaNewTopicConfig {
         return new NewTopic(
                 properties.getTopics().getPropiedadesNuevas(),
                 3,
-                (short) 1,
-                java.util.Map.of("retention.ms", RETENTION_MS, "cleanup.policy", "delete"));
+                (short) 1)
+                .configs(java.util.Map.of("retention.ms", RETENTION_MS, "cleanup.policy", "delete"));
     }
 
     @Bean
@@ -37,8 +37,8 @@ public class KafkaNewTopicConfig {
         return new NewTopic(
                 properties.getTopics().getNotificacionesSistema(),
                 4,
-                (short) 1,
-                java.util.Map.of("retention.ms", RETENTION_MS, "cleanup.policy", "delete"));
+                (short) 1)
+                .configs(java.util.Map.of("retention.ms", RETENTION_MS, "cleanup.policy", "delete"));
     }
 
     @Bean
@@ -46,16 +46,18 @@ public class KafkaNewTopicConfig {
         return new NewTopic(
                 properties.getTopics().getPropiedadesNuevasDlq(),
                 3,
-                (short) 1,
-                java.util.Map.of("retention.ms", RETENTION_MS, "cleanup.policy", "delete"));
+                (short) 1)
+                .configs(java.util.Map.of("retention.ms", RETENTION_MS, "cleanup.policy", "delete"));
     }
 
     @Bean
     public NewTopic notificacionesSistemaDlqTopic() {
+        // Mismas particiones que notificaciones-sistema: el recoverer conserva
+        // el numero de particion del mensaje original al moverlo a la DLQ.
         return new NewTopic(
                 properties.getTopics().getNotificacionesSistemaDlq(),
-                3,
-                (short) 1,
-                java.util.Map.of("retention.ms", RETENTION_MS, "cleanup.policy", "delete"));
+                4,
+                (short) 1)
+                .configs(java.util.Map.of("retention.ms", RETENTION_MS, "cleanup.policy", "delete"));
     }
 }

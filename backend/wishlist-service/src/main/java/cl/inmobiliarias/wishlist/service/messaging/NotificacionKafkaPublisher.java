@@ -5,6 +5,7 @@ import cl.inmobiliarias.wishlist.dto.NotificacionSistemaEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.CompletableFuture;
@@ -34,7 +35,7 @@ public class NotificacionKafkaPublisher {
         String clave = evento.getComuna();
         log.info("Publicando notificacion en {} para {} (comuna={})",
                 topic, evento.getDestinatarioEmail(), clave);
-        CompletableFuture<?> future = kafkaTemplate.send(topic, clave, evento);
+        CompletableFuture<SendResult<String, Object>> future = kafkaTemplate.send(topic, clave, evento);
         future.whenComplete((result, ex) -> {
             if (ex != null) {
                 log.error("Error al publicar notificacion para {} en {}: {}",

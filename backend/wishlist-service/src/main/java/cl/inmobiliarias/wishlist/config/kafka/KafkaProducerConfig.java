@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 
 import java.util.HashMap;
@@ -45,8 +46,8 @@ public class KafkaProducerConfig {
         props.put(RETRIES_CONFIG, 3);
         props.put(ENABLE_IDEMPOTENCE_CONFIG, true);
         // JsonSerializer incluye el tipo en el header, confianza solo en nuestro DTO.
-        props.put(JsonSerializer.TRUSTED_PACKAGES, "cl.inmobiliarias.wishlist.dto");
-        props.put(JsonSerializer.ADD_TYPE_HEADERS, true);
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "cl.inmobiliarias.wishlist.dto");
+        props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, true);
         return new DefaultKafkaProducerFactory<>(props);
     }
 

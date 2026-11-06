@@ -23,7 +23,7 @@ import java.time.Instant;
  */
 @Entity
 @Table(name = "wishlist_novedades",
-        uniqueConstraints = @UniqueConstraint({"usuario_email", "propiedad_id"}))
+        uniqueConstraints = @UniqueConstraint(columnNames = {"usuario_email", "propiedad_id"}))
 public class Novedad {
 
     @Id

@@ -40,6 +40,19 @@ jobs:
             ${{ secrets.DOCKER_HUB_USERNAME }}/inmobiliaria-service:latest
             ${{ secrets.DOCKER_HUB_USERNAME }}/inmobiliaria-service:${{ github.sha }}
 
+      # wishlist-service (favoritos, alertas y novedades con Kafka). Sin esta
+      # imagen el contenedor del compose de infra no se puede descargar y el
+      # target group del 8082 queda unhealthy: API Gateway responde 503 en
+      # /api/wishlist/*.
+      - name: Build y push wishlist-service
+        uses: docker/build-push-action@v6
+        with:
+          context: backend/wishlist-service
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_HUB_USERNAME }}/wishlist-service:latest
+            ${{ secrets.DOCKER_HUB_USERNAME }}/wishlist-service:${{ github.sha }}
+
       - name: Disparar deploy en el repo de infraestructura
         env:
           GH_PAT: ${{ secrets.GH_PAT }}

@@ -18,7 +18,7 @@ import java.time.Instant;
  * las alertas de esa comuna y publica una notificacion por cada usuario.
  */
 @Entity
-@Table(name = "wishlist_alertas", uniqueConstraints = @UniqueConstraint({"usuario_email", "comuna"}))
+@Table(name = "wishlist_alertas", uniqueConstraints = @UniqueConstraint(columnNames = {"usuario_email", "comuna"}))
 public class AlertaComuna {
 
     @Id

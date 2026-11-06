@@ -11,7 +11,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.kafka.support.ack.Acknowledgment;
+import org.springframework.kafka.support.Acknowledgment;
 
 import java.util.List;
 
