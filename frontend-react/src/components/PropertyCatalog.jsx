@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Button, Card, Badge } from 'react-bootstrap';
+import { Row, Col, Button, Card, Badge } from 'react-bootstrap';
 import { useMsal } from '@azure/msal-react';
 import { haySesion } from '../msalConfig';
 import {
   obtenerFavoritos,
-  obtenerAlertas,
   agregarFavorito,
   eliminarFavorito,
-  seguirComuna,
   extraerComunaLocal
 } from '../api/apiClient';
 
@@ -16,15 +14,14 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
   const isLoggedIn = accounts.length > 0 || haySesion();
   const [currentImages, setCurrentImages] = useState({});
   const [favoritosIds, setFavoritosIds] = useState(new Set());
-  const [alertas, setAlertas] = useState(new Set());
-  const [cargandoFavoritos, setCargandoFavoritos] = useState(true);
 
-  // Carga inicial de favoritos y alertas cuando hay sesion. Silencia errores
+  // Carga inicial de favoritos cuando hay sesion. Silencia errores
   // para no romper el catalogo publico si el backend no esta disponible.
+  // Las alertas por comuna son automaticas: el backend las crea al guardar
+  // un favorito, asi que el catalogo no necesita seguir comunas manualmente.
   useEffect(() => {
     const cargarWishlist = async () => {
       if (!isLoggedIn) {
-        setCargandoFavoritos(false);
         return;
       }
       try {
@@ -42,21 +39,6 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
       } catch (_) {
         // Error silencioso: el catalogo funciona igual sin wishlist.
       }
-      try {
-        const alertasData = await obtenerAlertas();
-        const lista = Array.isArray(alertasData)
-          ? alertasData
-          : (alertasData?.alertas || alertasData?.comunas || []);
-        const comunas = new Set(
-          lista
-            .map((item) => (typeof item === 'string' ? item : item?.comuna ?? item?.nombre ?? null))
-            .filter((valor) => valor)
-        );
-        setAlertas(comunas);
-      } catch (_) {
-        // Error silencioso.
-      }
-      setCargandoFavoritos(false);
     };
     cargarWishlist();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -75,7 +57,7 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
     setCurrentImages(prev => {
       const propiedad = propiedades.find(p => p.id === id);
       if (!propiedad || propiedad.imagenes.length <= 1) return prev;
-      
+
       const currentIndex = prev[id] || 0;
       const newIndex = (currentIndex + direction + propiedad.imagenes.length) % propiedad.imagenes.length;
       return { ...prev, [id]: newIndex };
@@ -122,28 +104,11 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
           ubicacion: p.ubicacion
         });
         setFavoritosIds((prev) => new Set(prev).add(String(p.id)));
-        // El backend crea automaticamente la alerta de la comuna.
-        const comuna = extraerComunaLocal(p.ubicacion);
-        if (comuna) {
-          setAlertas((prev) => new Set(prev).add(comuna));
-        }
+        // El backend crea automaticamente la alerta de la comuna al guardar
+        // el favorito: no se llama a seguirComuna desde aqui.
       }
     } catch (error) {
       alert(error.message || 'No se pudo actualizar el favorito');
-    }
-  };
-
-  const seguirComunaDePropiedad = async (comuna) => {
-    if (!isLoggedIn) {
-      alert("Inicia sesión para guardar favoritos");
-      return;
-    }
-    if (!comuna) return;
-    try {
-      await seguirComuna(comuna);
-      setAlertas((prev) => new Set(prev).add(comuna));
-    } catch (error) {
-      alert(error.message || 'No se pudo seguir la comuna');
     }
   };
 
@@ -153,34 +118,40 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
         <Col xs={12}>
           <h2 className="text-center mb-2">Propiedades Disponibles</h2>
           <p className="text-center text-muted mb-4">Filtra nuestro catálogo según lo que estés buscando</p>
+          {isLoggedIn && (
+            <p className="text-center text-muted small mb-4">
+              <i className="bi bi-bell me-1"></i>
+              Al guardar una propiedad se activa sola la alerta de su comuna: cuando admin o corredor publique una nueva ahí, te avisamos en esta página y por correo.
+            </p>
+          )}
         </Col>
       </Row>
 
       <Row className="mb-4">
         <Col xs={12} className="d-flex justify-content-center gap-2 flex-wrap">
-          <Button 
-            variant={filtro === 'Todos' ? 'dark' : 'outline-dark'} 
+          <Button
+            variant={filtro === 'Todos' ? 'dark' : 'outline-dark'}
             className="filter-btn"
             onClick={() => setFiltro('Todos')}
           >
             ✨ Todos
           </Button>
-          <Button 
-            variant={filtro === 'Casa' ? 'dark' : 'outline-dark'} 
+          <Button
+            variant={filtro === 'Casa' ? 'dark' : 'outline-dark'}
             className="filter-btn"
             onClick={() => setFiltro('Casa')}
           >
             🏡 Casas
           </Button>
-          <Button 
-            variant={filtro === 'Departamento' ? 'dark' : 'outline-dark'} 
+          <Button
+            variant={filtro === 'Departamento' ? 'dark' : 'outline-dark'}
             className="filter-btn"
             onClick={() => setFiltro('Departamento')}
           >
             🏢 Departamentos
           </Button>
-          <Button 
-            variant={filtro === 'Terreno' ? 'dark' : 'outline-dark'} 
+          <Button
+            variant={filtro === 'Terreno' ? 'dark' : 'outline-dark'}
             className="filter-btn"
             onClick={() => setFiltro('Terreno')}
           >
@@ -223,7 +194,6 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
             const sufijo = propiedad.tipoPrecio || "/ Valor Total";
             const comunaLocal = extraerComunaLocal(propiedad.ubicacion);
             const esFavorito = favoritosIds.has(String(propiedad.id));
-            const siguiendoComuna = comunaLocal ? alertas.has(comunaLocal) : false;
 
             return (
               <Col key={propiedad.id} xs={12} sm={6} md={4} lg={4}>
@@ -231,14 +201,14 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
                   <div className="image-carousel" style={{ position: 'relative', overflow: 'hidden' }}>
                     {propiedad.imagenes.length > 1 && (
                       <>
-                        <button 
+                        <button
                           className="carousel-nav carousel-prev"
                           onClick={() => cambiarImagen(propiedad.id, -1)}
                           style={{ display: propiedad.imagenes.length > 1 ? 'block' : 'none' }}
                         >
                           ‹
                         </button>
-                        <button 
+                        <button
                           className="carousel-nav carousel-next"
                           onClick={() => cambiarImagen(propiedad.id, 1)}
                           style={{ display: propiedad.imagenes.length > 1 ? 'block' : 'none' }}
@@ -247,9 +217,9 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
                         </button>
                       </>
                     )}
-                    <img 
-                      src={imagenActual} 
-                      alt={propiedad.titulo} 
+                    <img
+                      src={imagenActual}
+                      alt={propiedad.titulo}
                       loading="lazy"
                       onClick={() => onImageClick(imagenActual)}
                       title="Haz clic para expandir la imagen"
@@ -265,6 +235,11 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
                     <div className="mb-2">
                       {badgeOperacion}
                       <Badge bg="secondary">{propiedad.categoria}</Badge>
+                      {comunaLocal && (
+                        <Badge bg="info" text="dark" className="ms-1">
+                          <i className="bi bi-geo-alt me-1"></i>{comunaLocal}
+                        </Badge>
+                      )}
                     </div>
                     <Card.Title className="fw-bold" style={{ color: '#111' }}>
                       {propiedad.titulo}
@@ -275,7 +250,7 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
                         {sufijo}
                       </span>
                     </p>
-                    
+
                     <div className="features mb-2 d-flex gap-2 flex-wrap text-muted small">
                       <span className="feature me-2">
                         <i className="bi bi-door-open-fill me-1"></i>{propiedad.piezas} {propiedad.piezas === 1 ? 'dorm.' : 'dorm.'}
@@ -299,9 +274,9 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
 
                     {htmlBotonVideo}
 
-                    <a 
-                      href={generarMensajeWhatsApp(propiedad)} 
-                      target="_blank" 
+                    <a
+                      href={generarMensajeWhatsApp(propiedad)}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="btn btn-primary btn-contact w-100 d-flex align-items-center justify-content-center"
                       style={{ textDecoration: 'none' }}
@@ -309,28 +284,15 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
                       <i className="bi bi-whatsapp me-2"></i>Contactar
                     </a>
 
-                    <div className="d-flex gap-2 mt-2">
-                      <Button
-                        size="sm"
-                        variant={esFavorito ? 'danger' : 'outline-danger'}
-                        className={`flex-fill${esFavorito ? ' btn-favorito-activo' : ''}`}
-                        onClick={() => toggleFavorito(propiedad)}
-                      >
-                        <i className={`bi ${esFavorito ? 'bi-heart-fill' : 'bi-heart'} me-1`}></i>
-                        {esFavorito ? 'Favorito' : 'Guardar'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline-primary"
-                        className="flex-fill"
-                        disabled={!comunaLocal || siguiendoComuna}
-                        title={!comunaLocal ? 'No se detectó la comuna en la ubicación' : (siguiendoComuna ? `Siguiendo ${comunaLocal}` : `Avisarme de ${comunaLocal}`)}
-                        onClick={() => seguirComunaDePropiedad(comunaLocal)}
-                      >
-                        <i className={`bi ${siguiendoComuna ? 'bi-bell-fill' : 'bi-bell'} me-1`}></i>
-                        {siguiendoComuna ? `Siguiendo ${comunaLocal}` : (comunaLocal ? `Avisarme de ${comunaLocal}` : 'Avisarme')}
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      variant={esFavorito ? 'danger' : 'outline-danger'}
+                      className={`w-100 mt-2${esFavorito ? ' btn-favorito-activo' : ''}`}
+                      onClick={() => toggleFavorito(propiedad)}
+                    >
+                      <i className={`bi ${esFavorito ? 'bi-heart-fill' : 'bi-heart'} me-1`}></i>
+                      {esFavorito ? 'Favorito' : 'Guardar'}
+                    </Button>
                   </Card.Body>
                 </Card>
               </Col>

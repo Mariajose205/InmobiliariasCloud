@@ -4,6 +4,7 @@ import cl.inmobiliarias.wishlist.dto.NotificacionSistemaEvent;
 import cl.inmobiliarias.wishlist.dto.PropiedadCreadaEvent;
 import cl.inmobiliarias.wishlist.model.AlertaComuna;
 import cl.inmobiliarias.wishlist.repository.AlertaComunaRepository;
+import cl.inmobiliarias.wishlist.repository.NovedadRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -29,6 +30,9 @@ class PropiedadNuevaNotificadorTest {
 
     @Mock
     private AlertaComunaRepository alertaComunaRepository;
+
+    @Mock
+    private NovedadRepository novedadRepository;
 
     @Mock
     private NotificacionKafkaPublisher publisher;

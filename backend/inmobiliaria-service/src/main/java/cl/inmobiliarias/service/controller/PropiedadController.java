@@ -4,6 +4,7 @@ import cl.inmobiliarias.service.model.Propiedad;
 import cl.inmobiliarias.service.security.IdentidadInterceptor;
 import cl.inmobiliarias.service.service.AuditoriaService;
 import cl.inmobiliarias.service.service.PropiedadService;
+import cl.inmobiliarias.service.service.messaging.PropiedadNuevaPublisher;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,10 +38,13 @@ public class PropiedadController {
 
     private final PropiedadService service;
     private final AuditoriaService auditoriaService;
+    private final PropiedadNuevaPublisher propiedadNuevaPublisher;
 
-    public PropiedadController(PropiedadService service, AuditoriaService auditoriaService) {
+    public PropiedadController(PropiedadService service, AuditoriaService auditoriaService,
+                               PropiedadNuevaPublisher propiedadNuevaPublisher) {
         this.service = service;
         this.auditoriaService = auditoriaService;
+        this.propiedadNuevaPublisher = propiedadNuevaPublisher;
     }
 
     @GetMapping
@@ -68,6 +72,15 @@ public class PropiedadController {
         propiedad.setCreadoPorOid(valor(oid));
         Propiedad creada = service.crear(propiedad);
         auditoriaService.registrar("CREAR", creada.getTitulo(), valor(usuario), valor(rol));
+        // Aviso automatico a usuarios con favoritos en la misma comuna.
+        // El wishlist-service crea la novedad en la pagina principal y el correo.
+        // Si Kafka falla, el catalogo ya quedo guardado: no se bloquea el POST.
+        try {
+            propiedadNuevaPublisher.publicar(creada);
+        } catch (RuntimeException ex) {
+            // Defensa extra: el publicador ya es asincrono, pero nunca debe
+            // romper la creacion de la propiedad.
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(creada);
     }
 

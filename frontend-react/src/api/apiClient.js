@@ -199,30 +199,59 @@ export function eliminarFavorito(propiedadId) {
   });
 }
 
+/**
+ * Alertas automaticas: se crean solas al guardar un favorito en una comuna
+ * (backend). Solo se LEE para mostrar el resumen; no hay boton manual.
+ */
 export function obtenerAlertas() {
   return apiFetchAutenticado('/api/wishlist/alertas');
 }
 
-export function seguirComuna(comuna) {
-  return apiFetchAutenticado('/api/wishlist/alertas', {
-    method: 'POST',
-    body: JSON.stringify({ comuna })
-  });
+/**
+ * Novedades automaticas para la pagina principal.
+ * El backend las crea cuando se publica una nueva propiedad en una comuna
+ * que el usuario sigue; Home las sondea cada ~15s y muestra el banner.
+ */
+export function obtenerNovedades() {
+  return apiFetchAutenticado('/api/wishlist/novedades');
 }
 
-export function dejarDeSeguirComuna(comuna) {
-  return apiFetchAutenticado(`/api/wishlist/alertas/${encodeURIComponent(comuna)}`, {
+export function descartarNovedad(novedadId) {
+  return apiFetchAutenticado(`/api/wishlist/novedades/${novedadId}`, {
     method: 'DELETE'
   });
 }
 
+/**
+ * Totales agrupados por comuna de las propiedades guardadas (favoritos).
+ * Lo usa Wishlist para mostrar "todas las guardadas" agrupadas.
+ */
+export function agruparGuardadasPorComuna(favoritos) {
+  const grupo = {};
+  (favoritos || []).forEach((fav) => {
+    const comuna = fav?.comuna || extraerComunaLocal(fav?.ubicacion) || 'Sin comuna';
+    if (!grupo[comuna]) grupo[comuna] = [];
+    grupo[comuna].push(fav);
+  });
+  return grupo;
+}
+
 export async function obtenerComunas() {
+  // GET /api/wishlist/comunas es publico (ruta NONE en el API Gateway),
+  // pero el fallback local cubre el caso en que aun no haya sesion.
   try {
-    const datos = await apiFetchAutenticado('/api/wishlist/comunas');
+    const datos = await apiFetch('/api/wishlist/comunas');
     if (Array.isArray(datos) && datos.length > 0) return datos;
     if (datos && Array.isArray(datos.comunas) && datos.comunas.length > 0) return datos.comunas;
     return COMUNAS;
   } catch (_) {
+    try {
+      const datos = await apiFetchAutenticado('/api/wishlist/comunas');
+      if (Array.isArray(datos) && datos.length > 0) return datos;
+      if (datos && Array.isArray(datos.comunas) && datos.comunas.length > 0) return datos.comunas;
+    } catch (_) {
+      // Se usa la lista local.
+    }
     return COMUNAS;
   }
 }

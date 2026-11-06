@@ -107,7 +107,13 @@ Parameters:
     Type: Number
     Default: 8081
     MinValue: 1
-    Description: Puerto del microservicio dentro de la red privada.
+    Description: Puerto del microservicio inmobiliaria dentro de la red privada.
+
+  WishlistPort:
+    Type: Number
+    Default: 8082
+    MinValue: 1
+    Description: Puerto del microservicio wishlist dentro de la red privada (mismo EC2, segundo contenedor).
 
   VpcCidr:
     Type: String
@@ -231,7 +237,12 @@ Resources:
           FromPort: !Ref BackendPort
           ToPort: !Ref BackendPort
           CidrIp: !Ref VpcCidr
-          Description: Microservicio docker en el EC2 de backend.
+          Description: Microservicio inmobiliaria en el EC2 de backend (8081).
+        - IpProtocol: tcp
+          FromPort: !Ref WishlistPort
+          ToPort: !Ref WishlistPort
+          CidrIp: !Ref VpcCidr
+          Description: Microservicio wishlist en el EC2 de backend (8082).
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
@@ -311,6 +322,57 @@ Resources:
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref BackendTargetGroup
+
+  # -------------------------------------------------------------------------
+  # Segundo balanceador para wishlist-service (puerto 8082, mismo EC2).
+  #
+  # Sin esto, /api/wishlist/* devolvia 404 desde API Gateway y el navegador
+  # lo reportaba como error CORS ("No Access-Control-Allow-Origin"). El CORS
+  # ya estaba bien configurado a nivel API: la ruta simplemente no existia,
+  # y una ruta inexistente responde 404 sin cabeceras CORS.
+  # -------------------------------------------------------------------------
+  WishlistNlb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: inmob-wishlist-nlb
+      Scheme: internal
+      Type: network
+      SubnetMappings:
+        - SubnetId: !Select [0, !Ref VpcLinkSubnetIds]
+        - SubnetId: !Select [1, !Ref VpcLinkSubnetIds]
+      LoadBalancerAttributes:
+        - Key: load_balancing.cross_zone.enabled
+          Value: 'true'
+      Tags:
+        - Key: Aplicacion
+          Value: inmobiliarias-duoc
+
+  WishlistTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: inmob-wishlist-tg-v1
+      VpcId: !Ref VpcId
+      Port: !Ref WishlistPort
+      Protocol: TCP
+      TargetType: instance
+      Targets:
+        - Id: !Ref BackendInstanceId
+          Port: !Ref WishlistPort
+      HealthCheckProtocol: TCP
+      HealthCheckPort: !Ref WishlistPort
+      Tags:
+        - Key: Aplicacion
+          Value: inmobiliarias-duoc
+
+  WishlistListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref WishlistNlb
+      Port: !Ref WishlistPort
+      Protocol: TCP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref WishlistTargetGroup
 
   # -------------------------------------------------------------------------
   # Integraciones HTTP proxy hacia el microservicio, una por metodo, porque
@@ -398,6 +460,67 @@ Resources:
       IntegrationType: HTTP_PROXY
       IntegrationMethod: DELETE
       IntegrationUri: !Ref BackendListener
+      PayloadFormatVersion: '1.0'
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLink
+      TimeoutInMillis: 29000
+      RequestParameters:
+        overwrite:header.X-User: $context.authorizer.claims.preferred_username
+        overwrite:header.X-User-Oid: $context.authorizer.claims.oid
+        overwrite:header.X-User-Name: $context.authorizer.claims.name
+
+  # Integraciones hacia wishlist-service (8082), una por metodo.
+  WishlistGetIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: GET
+      IntegrationUri: !Ref WishlistListener
+      PayloadFormatVersion: '1.0'
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLink
+      TimeoutInMillis: 29000
+      RequestParameters:
+        overwrite:header.X-User: $context.authorizer.claims.preferred_username
+        overwrite:header.X-User-Oid: $context.authorizer.claims.oid
+        overwrite:header.X-User-Name: $context.authorizer.claims.name
+
+  WishlistGetPublicIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: GET
+      IntegrationUri: !Ref WishlistListener
+      PayloadFormatVersion: '1.0'
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLink
+      TimeoutInMillis: 29000
+
+  WishlistPostIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: POST
+      IntegrationUri: !Ref WishlistListener
+      PayloadFormatVersion: '1.0'
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLink
+      TimeoutInMillis: 29000
+      RequestParameters:
+        overwrite:header.X-User: $context.authorizer.claims.preferred_username
+        overwrite:header.X-User-Oid: $context.authorizer.claims.oid
+        overwrite:header.X-User-Name: $context.authorizer.claims.name
+
+  WishlistDeleteIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: DELETE
+      IntegrationUri: !Ref WishlistListener
       PayloadFormatVersion: '1.0'
       ConnectionType: VPC_LINK
       ConnectionId: !Ref VpcLink
@@ -535,6 +658,148 @@ Resources:
       AuthorizationScopes:
         - !Ref AuthorizationScopeName
   # -------------------------------------------------------------------------
+  # Rutas del wishlist-service (favoritos + novedades automaticas).
+  #
+  # OJO: estas rutas faltaban y por eso /api/wishlist/* devolvia 404 sin
+  # CORS. Con ellas, el preflight lo sigue respondiendo CorsConfiguration
+  # del API y la peticion llega a wishlist-service (8082) via su NLB.
+  #
+  # - GET /api/wishlist/comunas es publico (catalogo de comunas sin sesion,
+  #   igual que el interceptor del servicio que lo permite sin identidad).
+  # - El resto exige JWT; el servicio resuelve la identidad desde el token.
+  # - /api/admin/kafka/* es mas especifica que /api/admin/{proxy+} y API
+  #   Gateway la prefiere, asi que no choca con el admin RabbitMQ de
+  #   inmobiliaria-service.
+  # -------------------------------------------------------------------------
+  RutaWishlistComunas:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/wishlist/comunas
+      Target: !Sub 'integrations/${WishlistGetPublicIntegration}'
+      AuthorizationType: NONE
+
+  RutaWishlistFavoritosGet:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/wishlist/favoritos
+      Target: !Sub 'integrations/${WishlistGetIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+
+  RutaWishlistFavoritosPost:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: POST /api/wishlist/favoritos
+      Target: !Sub 'integrations/${WishlistPostIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+
+  RutaWishlistFavoritoDelete:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: DELETE /api/wishlist/favoritos/{propiedadId}
+      Target: !Sub 'integrations/${WishlistDeleteIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+
+  RutaWishlistAlertasGet:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/wishlist/alertas
+      Target: !Sub 'integrations/${WishlistGetIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+
+  RutaWishlistAlertasPost:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: POST /api/wishlist/alertas
+      Target: !Sub 'integrations/${WishlistPostIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+
+  RutaWishlistAlertaDelete:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: DELETE /api/wishlist/alertas/{comuna}
+      Target: !Sub 'integrations/${WishlistDeleteIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+
+  RutaWishlistNovedadesGet:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/wishlist/novedades
+      Target: !Sub 'integrations/${WishlistGetIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+
+  RutaWishlistNovedadDelete:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: DELETE /api/wishlist/novedades/{id}
+      Target: !Sub 'integrations/${WishlistDeleteIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+
+  RutaWishlistAdminKafkaGet:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/admin/kafka/{proxy+}
+      Target: !Sub 'integrations/${WishlistGetIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+
+  RutaWishlistAdminKafkaPost:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: POST /api/admin/kafka/{proxy+}
+      Target: !Sub 'integrations/${WishlistPostIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+
+  RutaWishlistAdminKafkaDelete:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: DELETE /api/admin/kafka/{proxy+}
+      Target: !Sub 'integrations/${WishlistDeleteIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+  # -------------------------------------------------------------------------
   # Stage en $default: la URL publica no lleva segmento de stage, que queda
   # https://{apiId}.execute-api.{region}.amazonaws.com/api/propiedades
   # -------------------------------------------------------------------------
@@ -593,3 +858,11 @@ Outputs:
   BackendListenerArn:
     Description: ARN del listener, que es lo que usan las integraciones privadas.
     Value: !Ref BackendListener
+
+  WishlistNlbDnsName:
+    Description: DNS interno del balanceador de wishlist (diagnostico).
+    Value: !GetAtt WishlistNlb.DNSName
+
+  WishlistListenerArn:
+    Description: ARN del listener de wishlist, usado por las integraciones privadas.
+    Value: !Ref WishlistListener

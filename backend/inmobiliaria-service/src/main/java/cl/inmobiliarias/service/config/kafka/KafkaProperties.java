@@ -1,11 +1,13 @@
 package cl.inmobiliarias.service.config.kafka;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 /**
  * Nombres de los topicos Kafka del flujo "nueva propiedad -> aviso por comuna".
  * Leidos desde {@code app.kafka.topics} en application.yml.
  */
+@Component
 @ConfigurationProperties(prefix = "app.kafka")
 public class KafkaProperties {
 

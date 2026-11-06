@@ -84,6 +84,37 @@ services:
     networks:
       - inmob-red
 
+  # Kafka en modo KRaft (sin Zookeeper): broker del flujo de lista de deseos
+  # (wishlist-service). El puerto 9092 se publica para administracion y
+  # deberia restringirse por Security Group en produccion.
+  kafka:
+    image: apache/kafka:3.9.0
+    container_name: inmobiliarias-kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_DEFAULT_MIN_INSYNC_REPLICAS: 1
+      TZ: America/Santiago
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka-data:/var/lib/kraft/combined
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - inmob-red
+
   # El puerto 8081 se publica para que API Gateway lo alcance por el VPC Link.
   # El Security Group del EC2 debe dejar entrar el 8081 solo desde el VPC Link o
   # el NLB, nunca desde internet.
@@ -118,6 +149,8 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-guest}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-guest}
+      # Kafka del flujo de lista de deseos.
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       # SMTP para notificaciones y entrega del PDF.
       MAIL_HOST: mailhog
       MAIL_PORT: 1025
@@ -133,6 +166,60 @@ services:
       # un problema de RabbitMQ no tumba el catalogo ni la API.
       rabbitmq:
         condition: service_started
+      kafka:
+        condition: service_started
+    networks:
+      - inmob-red
+
+  # Microservicio de lista de deseos (wishlist). Consume Kafka para
+  # notificaciones y usa SMTP (MailHog) para los correos.
+  wishlist-service:
+    build: ./wishlist-service
+    image: mariacarrero/wishlist-service:latest
+    container_name: wishlist-service
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MAIL_HOST: mailhog
+      MAIL_PORT: 1025
+      # Con ${VAR:-default} se evita que una variable vacia (por ejemplo, un
+      # .env sin definir) deje a admin/corredor sin rol y provoque 403.
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-administrador@inmobiliariaduoc.onmicrosoft.com}
+      ADMIN_OID: ${ADMIN_OID:-5ce11c6e-c796-41eb-b8ed-1872878cd197}
+      CORREDOR_EMAIL: ${CORREDOR_EMAIL:-Corredor@InmobiliariaDuoc.onmicrosoft.com}
+      CORREDOR_OID: ${CORREDOR_OID:-0a73de94-2722-4221-836c-bd7f3af16980}
+      TZ: America/Santiago
+    ports:
+      - "8082:8082"
+    depends_on:
+      db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    networks:
+      - inmob-red
+
+  # Consola web para inspeccionar topics y mensajes de Kafka.
+  kafka-ui:
+    image: provectus/kafka-ui:latest
+    container_name: inmobiliarias-kafka-ui
+    restart: unless-stopped
+    environment:
+      KAFKA_CLUSTERS_0_NAME: inmobiliarias
+      KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS: kafka:9092
+      # KAFKA_CLUSTERS_0_ZOOKEEPER se omite: Kafka corre en modo KRaft.
+      DYNAMIC_CONFIG_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
     networks:
       - inmob-red
 
@@ -144,3 +231,4 @@ volumes:
   pgdata:
   rabbitmq-data:
     name: inmobiliarias-rabbitmq-data
+  kafka-data:

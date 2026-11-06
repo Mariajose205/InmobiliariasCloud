@@ -3,8 +3,10 @@ package cl.inmobiliarias.wishlist.service;
 import cl.inmobiliarias.wishlist.dto.FavoritoRequest;
 import cl.inmobiliarias.wishlist.model.AlertaComuna;
 import cl.inmobiliarias.wishlist.model.Favorito;
+import cl.inmobiliarias.wishlist.model.Novedad;
 import cl.inmobiliarias.wishlist.repository.AlertaComunaRepository;
 import cl.inmobiliarias.wishlist.repository.FavoritoRepository;
+import cl.inmobiliarias.wishlist.repository.NovedadRepository;
 import cl.inmobiliarias.wishlist.util.Comunas;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Logica de favoritos y alertas por comuna.
+ * Logica de favoritos, alertas automaticas por comuna y novedades.
+ *
+ * No existe seguir/dejar manualmente desde la UI: al guardar un favorito,
+ * la comuna se sigue sola (ver agregarFavorito). Los metodos
+ * seguirComuna/dejarDeSeguirComuna se mantienen solo por compatibilidad
+ * de la API, pero el frontend ya no expone un boton "Avisarme".
  */
 @Service
 public class WishlistService {
@@ -23,11 +30,14 @@ public class WishlistService {
 
     private final FavoritoRepository favoritoRepository;
     private final AlertaComunaRepository alertaComunaRepository;
+    private final NovedadRepository novedadRepository;
 
     public WishlistService(FavoritoRepository favoritoRepository,
-                           AlertaComunaRepository alertaComunaRepository) {
+                           AlertaComunaRepository alertaComunaRepository,
+                           NovedadRepository novedadRepository) {
         this.favoritoRepository = favoritoRepository;
         this.alertaComunaRepository = alertaComunaRepository;
+        this.novedadRepository = novedadRepository;
     }
 
     /** Lista los favoritos de un usuario. */
@@ -109,5 +119,19 @@ public class WishlistService {
     /** Lista de comunas soportadas por el negocio. */
     public List<String> listarComunas() {
         return Comunas.listaComunas();
+    }
+
+    /** Novedades para la pagina principal, de la mas reciente a la mas antigua. */
+    @Transactional(readOnly = true)
+    public List<Novedad> listarNovedades(String email) {
+        return novedadRepository.findByUsuarioEmailIgnoreCaseOrderByFechaCreacionDesc(email);
+    }
+
+    /** Borra una novedad (el usuario la descarta en la pagina principal). */
+    @Transactional
+    public void eliminarNovedad(String email, Long novedadId) {
+        novedadRepository.findById(novedadId)
+                .filter(n -> n.getUsuarioEmail().equalsIgnoreCase(email))
+                .ifPresent(novedadRepository::delete);
     }
 }
