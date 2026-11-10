@@ -1,5 +1,5 @@
 import React from 'react'
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { MsalProvider } from '@azure/msal-react'
 import { msalInstance } from './msalConfig'
 import Home from './pages/Home'
