@@ -16,7 +16,7 @@ flowchart TB
 
     AZ["🏢 Microsoft Entra ID<br/>tenant 680da6eb-… · SSO OAuth 2.0 / OIDC<br/>MSAL: access token api://…/access_as_user"]
 
-    subgraph FE["☁️ AWS · EC2 Frontend — 54.156.18.1"]
+    subgraph FE["☁️ AWS · EC2 Frontend — 98.83.252.223"]
         CD["Caddy<br/>TLS · Let's Encrypt (HTTPS)"]
         NG["nginx<br/>Solo estáticos React (build Vite)"]
     end
@@ -27,7 +27,7 @@ flowchart TB
         VL["🔗 VPC Link<br/>ENIs privadas"]
     end
 
-    subgraph BE["☁️ AWS · EC2 Backend — 34.204.64.107"]
+    subgraph BE["☁️ AWS · EC2 Backend — 54.88.89.184"]
         SG["🔐 Security Group AWS<br/>Entrada 8081 solo desde el VPC Link"]
         subgraph DC["Docker · docker-compose"]
             MS["inmobiliaria-service · :8081<br/>CRUD · Auditoría<br/>Matriz de roles por método"]
