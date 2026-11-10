@@ -4,6 +4,7 @@ import cl.inmobiliarias.service.model.Propiedad;
 import cl.inmobiliarias.service.security.IdentidadInterceptor;
 import cl.inmobiliarias.service.service.AuditoriaService;
 import cl.inmobiliarias.service.service.PropiedadService;
+import cl.inmobiliarias.service.service.messaging.AuditoriaEventosPublisher;
 import cl.inmobiliarias.service.service.messaging.PropiedadNuevaPublisher;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -39,12 +40,15 @@ public class PropiedadController {
     private final PropiedadService service;
     private final AuditoriaService auditoriaService;
     private final PropiedadNuevaPublisher propiedadNuevaPublisher;
+    private final AuditoriaEventosPublisher auditoriaEventosPublisher;
 
     public PropiedadController(PropiedadService service, AuditoriaService auditoriaService,
-                               PropiedadNuevaPublisher propiedadNuevaPublisher) {
+                               PropiedadNuevaPublisher propiedadNuevaPublisher,
+                               AuditoriaEventosPublisher auditoriaEventosPublisher) {
         this.service = service;
         this.auditoriaService = auditoriaService;
         this.propiedadNuevaPublisher = propiedadNuevaPublisher;
+        this.auditoriaEventosPublisher = auditoriaEventosPublisher;
     }
 
     @GetMapping
@@ -72,6 +76,14 @@ public class PropiedadController {
         propiedad.setCreadoPorOid(valor(oid));
         Propiedad creada = service.crear(propiedad);
         auditoriaService.registrar("CREAR", creada.getTitulo(), valor(usuario), valor(rol));
+        // Evento de auditoria por el exchange topic (rk propiedades.eventos.creada).
+        // Igual que Kafka: si RabbitMQ falla, el catalogo ya quedo guardado.
+        try {
+            auditoriaEventosPublisher.publicar(creada, AuditoriaEventosPublisher.ACCION_CREAR,
+                    valor(usuario), valor(rol));
+        } catch (RuntimeException ex) {
+            // Defensa extra: nunca debe romper la creacion de la propiedad.
+        }
         // Aviso automatico a usuarios con favoritos en la misma comuna.
         // El wishlist-service crea la novedad en la pagina principal y el correo.
         // Si Kafka falla, el catalogo ya quedo guardado: no se bloquea el POST.
@@ -92,6 +104,13 @@ public class PropiedadController {
             @RequestAttribute(value = IdentidadInterceptor.ATTR_ROL, required = false) String rol) {
         Propiedad actualizada = service.actualizar(id, propiedad);
         auditoriaService.registrar("EDITAR", actualizada.getTitulo(), valor(usuario), valor(rol));
+        // Evento de auditoria por el exchange topic (rk propiedades.eventos.editar).
+        try {
+            auditoriaEventosPublisher.publicar(actualizada, AuditoriaEventosPublisher.ACCION_EDITAR,
+                    valor(usuario), valor(rol));
+        } catch (RuntimeException ex) {
+            // El PUT ya tuvo exito; la bitacora asincrona no debe romperlo.
+        }
         return ResponseEntity.ok(actualizada);
     }
 
@@ -102,6 +121,14 @@ public class PropiedadController {
             @RequestAttribute(value = IdentidadInterceptor.ATTR_ROL, required = false) String rol) {
         Propiedad propiedad = service.obtener(id);
         auditoriaService.registrar("ELIMINAR", propiedad.getTitulo(), valor(usuario), valor(rol));
+        // Evento de auditoria por el exchange topic (rk propiedades.eventos.eliminar):
+        // se publica ANTES de eliminar, porque despues la propiedad ya no existe.
+        try {
+            auditoriaEventosPublisher.publicar(propiedad, AuditoriaEventosPublisher.ACCION_ELIMINAR,
+                    valor(usuario), valor(rol));
+        } catch (RuntimeException ex) {
+            // El DELETE ya esta autorizado; la bitacora asincrona no debe romperlo.
+        }
         service.eliminar(id);
         return ResponseEntity.noContent().build();
     }

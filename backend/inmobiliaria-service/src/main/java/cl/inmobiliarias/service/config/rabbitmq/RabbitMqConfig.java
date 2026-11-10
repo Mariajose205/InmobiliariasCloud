@@ -7,19 +7,23 @@ import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.FanoutExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Declaracion de exchanges, colas y bindings del flujo de informes.
+ * Declaracion de exchanges, colas y bindings del flujo de informes y de
+ * auditoria de propiedades.
  *
  * Se declara un bean por "caso de uso" para que el broker quede descrito de
  * forma explicita y versionada:
  *
  *   inmobiliaria.fanout  ->  cola.correos.notificaciones
  *   inmobiliaria.direct  ->  cola.pdf.procesamiento
+ *   inmobiliaria.topic   ->  cola.propiedades.auditoria
+ *                           (binding con patron propiedades.eventos.#)
  *
  * Cada cola de trabajo tiene una Dead Letter Queue asociada a traves de
  * `inmobiliaria.dlx`. Cuando un consumidor agota los reintentos y hace
@@ -53,6 +57,17 @@ public class RabbitMqConfig {
         return new DirectExchange(propiedades.getExchanges().getDirect(), true, false);
     }
 
+    /**
+     * Topic: enruta los eventos del dominio "propiedades" por patron de
+     * routing key. El publicador usa claves propiedades.eventos.creada /
+     * .editar / .eliminar y el binding de la cola de auditoria usa el patron
+     * propiedades.eventos.#, que calza con las tres.
+     */
+    @Bean
+    public TopicExchange inmobiliariaTopicExchange() {
+        return new TopicExchange(propiedades.getExchanges().getTopic(), true, false);
+    }
+
     /** Dead Letter Exchange: recibe los mensajes fallidos y los enruta a su DLQ. */
     @Bean
     public DirectExchange inmobiliariaDlx() {
@@ -79,6 +94,18 @@ public class RabbitMqConfig {
                 .build();
     }
 
+    /**
+     * Tercera cola de trabajo: bitacora de eventos del dominio propiedades
+     * (crear/editar/eliminar), alimentada por el exchange topic.
+     */
+    @Bean
+    public Queue colaPropiedadesAuditoria() {
+        return QueueBuilder.durable(propiedades.getQueues().getPropiedadesAuditoria())
+                .withArgument("x-dead-letter-exchange", propiedades.getExchanges().getDlx())
+                .withArgument("x-dead-letter-routing-key", propiedades.getRoutingKeys().getPropiedadesAuditoriaDlq())
+                .build();
+    }
+
     // ------------------------------------------------------------------
     // Dead Letter Queues
     // ------------------------------------------------------------------
@@ -93,6 +120,13 @@ public class RabbitMqConfig {
     @Bean
     public Queue colaPdfProcesamientoDlq() {
         return QueueBuilder.durable(propiedades.getQueues().getPdfProcesamientoDlq())
+                .withArgument("x-message-ttl", propiedades.getAdmin().getDlqTtl())
+                .build();
+    }
+
+    @Bean
+    public Queue colaPropiedadesAuditoriaDlq() {
+        return QueueBuilder.durable(propiedades.getQueues().getPropiedadesAuditoriaDlq())
                 .withArgument("x-message-ttl", propiedades.getAdmin().getDlqTtl())
                 .build();
     }
@@ -115,6 +149,19 @@ public class RabbitMqConfig {
                 .with(propiedades.getRoutingKeys().getPdf());
     }
 
+    /**
+     * Binding del exchange topic: el patron propiedades.eventos.# calza con
+     * propiedades.eventos.creada, .editar y .eliminar (wildcard multi-nivel),
+     * dejando todas las acciones del dominio en la misma cola de auditoria.
+     */
+    @Bean
+    public Binding bindingAuditoria(TopicExchange inmobiliariaTopicExchange,
+                                     Queue colaPropiedadesAuditoria) {
+        return BindingBuilder.bind(colaPropiedadesAuditoria)
+                .to(inmobiliariaTopicExchange)
+                .with(propiedades.getRoutingKeys().getPropiedadesEventosPatron());
+    }
+
     // ------------------------------------------------------------------
     // Bindings: DLX -> DLQ
     // ------------------------------------------------------------------
@@ -133,6 +180,14 @@ public class RabbitMqConfig {
         return BindingBuilder.bind(colaPdfProcesamientoDlq)
                 .to(inmobiliariaDlx)
                 .with(propiedades.getRoutingKeys().getPdfProcesamientoDlq());
+    }
+
+    @Bean
+    public Binding bindingAuditoriaDlq(DirectExchange inmobiliariaDlx,
+                                        Queue colaPropiedadesAuditoriaDlq) {
+        return BindingBuilder.bind(colaPropiedadesAuditoriaDlq)
+                .to(inmobiliariaDlx)
+                .with(propiedades.getRoutingKeys().getPropiedadesAuditoriaDlq());
     }
 
     /**
