@@ -29,7 +29,7 @@ const Navbar = () => {
   return (
     <BootstrapNavbar expand="lg" className="navbar-dark">
       <Container>
-        <BootstrapNavbar.Brand as={Link} to="#" className="border border-white text-white px-3 py-2 rounded d-inline-flex align-items-center" style={{ fontWeight: 600 }}>
+        <BootstrapNavbar.Brand as={Link} to="/" className="border border-white text-white px-3 py-2 rounded d-inline-flex align-items-center" style={{ fontWeight: 600 }}>
           <i className="bi bi-house-door-fill me-2 text-white"></i>
           Duoc Propiedades
         </BootstrapNavbar.Brand>
@@ -37,10 +37,13 @@ const Navbar = () => {
         <BootstrapNavbar.Collapse id="navbarNav">
           <Nav className="ms-auto align-items-center">
             <Nav.Item>
-              <Nav.Link as={Link} to="#" className="active">Inicio</Nav.Link>
+              <Nav.Link as={Link} to="/">Inicio</Nav.Link>
             </Nav.Item>
             <Nav.Item>
-              <Nav.Link href="#propiedades">Propiedades</Nav.Link>
+              {/* Navega a Home y baja hasta el catalogo (el hash se resuelve
+                  con el efecto de scroll de Home.jsx). Con href="#propiedades"
+                  no funcionaba desde otras paginas, p.ej. /wishlist. */}
+              <Nav.Link as={Link} to="/#propiedades">Propiedades</Nav.Link>
             </Nav.Item>
             <Nav.Item>
               <Nav.Link href="#contacto">Contacto</Nav.Link>

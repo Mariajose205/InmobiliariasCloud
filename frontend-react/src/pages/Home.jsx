@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Form, Alert, Button } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import Navbar from '../components/Navbar';
 import HeroSection from '../components/HeroSection';
@@ -23,12 +23,27 @@ import '../App.css';
 function Home() {
   const { accounts } = useMsal();
   const isLoggedIn = accounts.length > 0 || haySesion();
+  const location = useLocation();
 
   const [propiedades, setPropiedades] = useState([]);
   const [todasLasPropiedades, setTodasLasPropiedades] = useState([]);
   const [filtro, setFiltro] = useState('Todos');
   const [filtroComuna, setFiltroComuna] = useState('Todas');
   const [modalImage, setModalImage] = useState(null);
+
+  // Los links "Propiedades" del navbar navegan a /#propiedades desde
+  // cualquier pagina. React Router no hace scroll automatico en una SPA,
+  // asi que al montar (o al cambiar el hash) se baja hasta la seccion.
+  // El timeout corto espera a que el catalogo termine de renderizarse.
+  useEffect(() => {
+    const hash = location.hash; // "#propiedades" o "#contacto"
+    if (!hash) return undefined;
+    const timer = setTimeout(() => {
+      const el = document.querySelector(hash);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [location.hash]);
 
   // Banner de novedades + contadores
   const [totalGuardadas, setTotalGuardadas] = useState(0);

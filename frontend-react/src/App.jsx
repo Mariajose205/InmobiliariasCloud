@@ -25,12 +25,29 @@ function PostLoginRedirect() {
   return null;
 }
 
+// Al cambiar de pagina (p.ej. de /wishlist a / con "Inicio"), la SPA
+// mantiene la posicion de scroll. Sin esto, volver desde favoritos dejaba
+// la pagina principal "a mitad de camino". Si la navegacion trae hash
+// (#propiedades / #contacto), Home se encarga de bajar a esa seccion.
+function ScrollToTop() {
+  const { pathname, hash } = useLocation();
+
+  React.useEffect(() => {
+    if (!hash) {
+      window.scrollTo(0, 0);
+    }
+  }, [pathname, hash]);
+
+  return null;
+}
+
 function App() {
   return (
     <MsalProvider instance={msalInstance}>
       <Router>
         <div className="App">
           <PostLoginRedirect />
+          <ScrollToTop />
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
