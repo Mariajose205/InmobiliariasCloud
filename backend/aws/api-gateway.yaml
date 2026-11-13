@@ -271,10 +271,12 @@ Resources:
       GenerateSecret: false
       # SRP es el flujo del SDK del navegador (no viaja la contrasena) y
       # REFRESH_TOKEN_AUTH permite renovar el access_token sin volver a pedir
-      # credenciales. No se habilita el hosted UI: el registro/login son
-      # pantallas propias de la SPA.
+      # credenciales. USER_PASSWORD_AUTH se habilita ademas para poder probar
+      # el flujo con AWS CLI (initiate-auth) en las pruebas de la rubrica; el
+      # frontend no lo usa.
       ExplicitAuthFlows:
         - ALLOW_USER_SRP_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
         - ALLOW_REFRESH_TOKEN_AUTH
       PreventUserExistenceErrors: ENABLED
       SupportedIdentityProviders:
