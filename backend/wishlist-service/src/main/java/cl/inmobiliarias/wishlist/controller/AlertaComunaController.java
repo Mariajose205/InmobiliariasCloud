@@ -25,9 +25,11 @@ import java.util.List;
  * Alertas por comuna del usuario autenticado.
  *
  * Las comunas disponibles se exponen en ComunaController (/api/wishlist/comunas).
+ * Los clientes de Cognito usan el mismo controlador por el alias
+ * /api/cliente/alertas (ver API Gateway: authorizer cognito-clientes-jwt).
  */
 @RestController
-@RequestMapping("/api/wishlist/alertas")
+@RequestMapping({"/api/wishlist/alertas", "/api/cliente/alertas"})
 public class AlertaComunaController {
 
     private static final Logger log = LoggerFactory.getLogger(AlertaComunaController.class);

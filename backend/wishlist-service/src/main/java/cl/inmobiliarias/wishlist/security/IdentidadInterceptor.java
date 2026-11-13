@@ -20,14 +20,21 @@ import java.io.IOException;
  *    Gateway no conoce los roles del negocio ni puede devolver un cuerpo de
  *    error propio en un 403.
  *
- * Las cabeceras `X-User`, `X-User-Oid` y `X-User-Name` se consideran de
- * confianza porque las escribe API Gateway despues de validar el token y
- * porque pisan cualquier valor que mande el cliente.
+ * Las cabeceras `X-User`, `X-User-Oid`, `X-User-Name` y `X-User-Rol` se
+ * consideran de confianza porque las escribe API Gateway despues de validar el
+ * token y porque pisan cualquier valor que mande el cliente.
+ *
+ * Hay DOS proveedores de identidad y cada uno tiene sus rutas:
+ *  - Staff (Entra ID): /api/wishlist/**, /api/admin/**.
+ *  - Clientes publicos (Cognito User Pool): /api/cliente/**. El access token de
+ *    Cognito trae el claim `rol=CLIENTE`, que API Gateway copia a `X-User-Rol`.
  *
  * Reglas de este microservicio:
  *  - GET /api/wishlist/comunas: publico (catalogo de comunas sin sesion).
  *  - /api/wishlist/**: cualquier identidad autenticada (incluido PUBLIC).
- *  - /api/admin/**: solo ADMIN.
+ *  - /api/cliente/**: solo CLIENTE (un token de Entra no sirve aqui).
+ *  - /api/admin/**: solo ADMIN (un token de Cognito no sirve aqui: ademas API
+ *    Gateway lo rechaza antes con el autorizador de Entra ID).
  *  - Sin identidad en produccion: 403 (no vino por el API Gateway).
  */
 @Component
@@ -40,6 +47,7 @@ public class IdentidadInterceptor implements HandlerInterceptor {
 
     public static final String ROL_ADMIN = "ADMIN";
     public static final String ROL_CORREDOR = "CORREDOR";
+    public static final String ROL_CLIENTE = "CLIENTE";
     public static final String ROL_PUBLIC = "PUBLIC";
 
     private static final Logger log = LoggerFactory.getLogger(IdentidadInterceptor.class);
@@ -60,15 +68,18 @@ public class IdentidadInterceptor implements HandlerInterceptor {
         String usuario = limpiar(request.getHeader("X-User"));
         String oid = limpiar(request.getHeader("X-User-Oid"));
         String nombre = limpiar(request.getHeader("X-User-Name"));
+        String rolClaim = limpiar(request.getHeader("X-User-Rol"));
         boolean hayIdentidad = !usuario.isBlank() || !oid.isBlank();
 
         boolean esAdmin = uri.startsWith("/api/admin");
+        boolean esCliente = uri.startsWith("/api/cliente");
         boolean esWishlist = uri.startsWith("/api/wishlist");
         // Catalogo de comunas: puede ser publico porque no muestra datos propios.
         boolean esComunas = uri.equals("/api/wishlist/comunas")
                 || uri.startsWith("/api/wishlist/comunas/");
         if (esComunas && "GET".equalsIgnoreCase(metodo)) {
-            guardar(request, usuario, nombre, oid, hayIdentidad ? resolverRol(usuario, oid) : "");
+            guardar(request, usuario, nombre, oid,
+                    hayIdentidad ? resolverRolEfectivo(rolClaim, usuario, oid) : "");
             return true;
         }
 
@@ -86,7 +97,7 @@ public class IdentidadInterceptor implements HandlerInterceptor {
             return !"OPTIONS".equalsIgnoreCase(metodo);
         }
 
-        String rol = resolverRol(usuario, oid);
+        String rol = resolverRolEfectivo(rolClaim, usuario, oid);
         guardar(request, usuario, nombre, oid, rol);
         log.info("[Auth] {} {} usuario={} rol={}", metodo, uri, usuario, rol);
 
@@ -98,6 +109,14 @@ public class IdentidadInterceptor implements HandlerInterceptor {
                     "{\"error\":\"Solo el administrador puede administrar el broker de mensajeria.\"}");
         }
 
+        if (esCliente) {
+            if (ROL_CLIENTE.equals(rol)) {
+                return true;
+            }
+            return rechazar(response, 403,
+                    "{\"error\":\"Solo los clientes registrados pueden usar esta seccion.\"}");
+        }
+
         if (esWishlist) {
             // Cualquier identidad autenticada (ADMIN, CORREDOR o PUBLIC) puede
             // usar su propia wishlist y sus propias alertas.
@@ -106,6 +125,45 @@ public class IdentidadInterceptor implements HandlerInterceptor {
 
         // Ruta no contemplada: se permite para no bloquear futuros endpoints.
         return true;
+    }
+
+    /**
+     * El rol puede venir ya resuelto en el claim `rol` del token (clientes de
+     * Cognito, que API Gateway copia a X-User-Rol). Si no viene, se deduce de
+     * la identidad de Entra ID como hasta ahora.
+     */
+    private String resolverRolEfectivo(String rolClaim, String usuario, String oid) {
+        String normalizado = normalizarRol(rolClaim);
+        return normalizado.isBlank() ? resolverRol(usuario, oid) : normalizado;
+    }
+
+    /**
+     * Acepta el nombre del rol tal como viaja en los claims de los dos
+     * proveedores (Cognito usa CLIENTE/ADMIN/OPERADOR; la app habla de
+     * corredor) y lo traduce a los valores internos.
+     */
+    private String normalizarRol(String valor) {
+        if (valor == null) {
+            return "";
+        }
+        switch (valor.trim().toUpperCase()) {
+            case "ADMIN":
+            case "ADMINISTRADOR":
+                return ROL_ADMIN;
+            case "CORREDOR":
+            case "CORREDORA":
+            case "OPERADOR":
+                return ROL_CORREDOR;
+            case "CLIENTE":
+            case "CLIENT":
+                return ROL_CLIENTE;
+            case "PUBLIC":
+            case "PUBLICO":
+                return ROL_PUBLIC;
+            default:
+                // Valor desconocido: se ignora y se resuelve por email/oid.
+                return "";
+        }
     }
 
     /**

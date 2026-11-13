@@ -23,9 +23,11 @@ import java.util.List;
  *
  * GET /api/wishlist/novedades -> lista de resumenes (polling cada ~15s)
  * DELETE /api/wishlist/novedades/{id} -> descarta el resumen y sus novedades
+ *
+ * Los clientes de Cognito usan el alias /api/cliente/novedades.
  */
 @RestController
-@RequestMapping("/api/wishlist/novedades")
+@RequestMapping({"/api/wishlist/novedades", "/api/cliente/novedades"})
 public class NovedadesController {
 
     private final ResumenNovedadesService service;

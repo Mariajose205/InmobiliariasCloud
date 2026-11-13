@@ -28,6 +28,7 @@ public class ApiGatewayWebConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(identidadInterceptor)
                 .addPathPatterns("/api/wishlist/**")
+                .addPathPatterns("/api/cliente/**")
                 .addPathPatterns("/api/admin/**");
     }
 }

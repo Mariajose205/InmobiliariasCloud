@@ -117,6 +117,22 @@ function Login() {
               <i className="bi bi-person me-1"></i>Ingresar como invitado
             </Button>
           </div>
+
+          <hr className="my-4" />
+
+          <div className="text-center">
+            <p className="text-muted small mb-2">
+              ¿Eres cliente? Regístrate o ingresa con tu correo (Amazon Cognito).
+            </p>
+            <Button
+              variant="outline-warning"
+              className="w-100"
+              onClick={() => navigate('/cliente')}
+              style={{ borderRadius: '10px', padding: '10px 20px', fontWeight: 600 }}
+            >
+              <i className="bi bi-person-badge me-1"></i>Mi cuenta de cliente
+            </Button>
+          </div>
         </div>
       </Container>
     </div>

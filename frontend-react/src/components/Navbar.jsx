@@ -3,15 +3,25 @@ import { Navbar as BootstrapNavbar, Container, Nav, Button } from 'react-bootstr
 import { Link } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import { obtenerRolCuenta, haySesion, limpiarSesion } from '../msalConfig';
+import { obtenerSesionCliente, cerrarSesionCliente } from '../cognito/auth';
 
 const Navbar = () => {
   const { instance, accounts } = useMsal();
+
+  // Sesion de staff (Entra ID) y sesion de cliente publico (Cognito) son
+  // independientes: cada una tiene sus rutas y su propio "cerrar sesion".
+  const cliente = obtenerSesionCliente();
 
   // Se considera que hay sesion si MSAL tiene una cuenta activa O si se
   // persistio manualmente el inicio de sesion (robusto frente a la cache).
   const isLoggedIn = accounts.length > 0 || haySesion();
 
   const handleLogout = async () => {
+    if (cliente) {
+      cerrarSesionCliente();
+      window.location.href = '/';
+      return;
+    }
     limpiarSesion();
     localStorage.removeItem('inmobiliaria_session');
     try {
@@ -48,7 +58,14 @@ const Navbar = () => {
             <Nav.Item>
               <Nav.Link href="#contacto">Contacto</Nav.Link>
             </Nav.Item>
-            {isLoggedIn && (
+            {cliente && (
+              <Nav.Item>
+                <Nav.Link as={Link} to="/cliente">
+                  <i className="bi bi-person-badge-fill me-1"></i>Mi cuenta
+                </Nav.Link>
+              </Nav.Item>
+            )}
+            {!cliente && isLoggedIn && (
               <Nav.Item>
                 <Nav.Link as={Link} to="/wishlist">
                   <i className="bi bi-heart-fill me-1"></i>Mis favoritos
@@ -70,7 +87,7 @@ const Navbar = () => {
               </Nav.Item>
             )}
             <Nav.Item id="authSection" className="ms-2">
-              {isLoggedIn ? (
+              {cliente || isLoggedIn ? (
                 <>
                   <Button 
                     variant="danger" 

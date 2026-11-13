@@ -224,6 +224,133 @@ Resources:
           - !Ref AzureClientId
 
   # -------------------------------------------------------------------------
+  # Amazon Cognito: identidad de los CLIENTES PUBLICOS (T02-T05).
+  #
+  # El staff (admin/operador) sigue entrando con Entra ID, que es el IDaaS
+  # corporativo. Los clientes se registran solos aqui: registro con email,
+  # confirmacion por codigo, login, refresh y forgot-password.
+  #
+  # El rol viaja en el claim `rol=CLIENTE`, que agrega el trigger
+  # PreTokenGeneration. No se puede falsificar desde el navegador porque el
+  # claim lo escribe Cognito al emitir el token, y API Gateway lo copia a la
+  # cabecera X-User-Rol pisando cualquier valor del cliente.
+  # -------------------------------------------------------------------------
+  ClienteUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: inmobiliarias-clientes
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      MfaConfiguration: 'OFF'
+      DeletionProtection: INACTIVE
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      LambdaConfig:
+        PreTokenGenerationConfig:
+          LambdaArn: !GetAtt ClienteRolFunction.Arn
+          LambdaVersion: V1_0
+
+  ClienteUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: inmobiliarias-clientes-spa
+      UserPoolId: !Ref ClienteUserPool
+      GenerateSecret: false
+      # SRP es el flujo del SDK del navegador (no viaja la contrasena) y
+      # REFRESH_TOKEN_AUTH permite renovar el access_token sin volver a pedir
+      # credenciales. No se habilita el hosted UI: el registro/login son
+      # pantallas propias de la SPA.
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      SupportedIdentityProviders:
+        - COGNITO
+      EnableTokenRevocation: true
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+
+  ClienteRolFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  ClienteRolFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: inmobiliarias-cliente-rol
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Timeout: 5
+      Role: !GetAtt ClienteRolFunctionRole.Arn
+      Code:
+        ZipFile: |
+          // Pre Token Generation V1: agrega a los tokens del cliente el rol
+          // del negocio y los datos que API Gateway reenvia al microservicio.
+          exports.handler = async (event) => {
+            const attrs = event.request.userAttributes || {};
+            event.response = event.response || {};
+            event.response.claimsOverrideDetails = {
+              claimsToAddOrOverride: {
+                rol: 'CLIENTE',
+                email: attrs.email || '',
+                name: attrs.name || ''
+              }
+            };
+            return event;
+          };
+
+  ClienteRolFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ClienteRolFunction
+      Action: lambda:InvokeFunction
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt ClienteUserPool.Arn
+
+  # Autorizador JWT contra el User Pool de clientes. API Gateway descarga el
+  # JWKS de Cognito y valida firma, issuer y audience (el app client) sin
+  # necesidad de Lambda.
+  ClienteCognitoAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      Name: cognito-clientes-jwt
+      AuthorizerType: JWT
+      IdentitySource:
+        - '$request.header.Authorization'
+      JwtConfiguration:
+        Issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${ClienteUserPool}'
+        Audience:
+          - !Ref ClienteUserPoolClient
+
+  # -------------------------------------------------------------------------
   # VPC Link: las ENIs privadas que permiten que API Gateway alcance el
   # microservicio sin exponerlo a internet.
   # -------------------------------------------------------------------------
@@ -530,6 +657,63 @@ Resources:
         overwrite:header.X-User-Oid: $context.authorizer.claims.oid
         overwrite:header.X-User-Name: $context.authorizer.claims.name
 
+  # Integraciones hacia wishlist-service para los CLIENTES de Cognito.
+  #
+  # Van separadas de las de staff porque los claims son distintos: en un token
+  # de Cognito no existe `preferred_username` ni `oid`, y en su lugar el
+  # trigger agrega `email`, `name` y `rol`. API Gateway copia esos claims a
+  # las cabeceras X-User* (overwrite: el cliente no puede inyectarlas).
+  ClienteGetIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: GET
+      IntegrationUri: !Ref WishlistListener
+      PayloadFormatVersion: '1.0'
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLink
+      TimeoutInMillis: 29000
+      RequestParameters:
+        overwrite:header.X-User: $context.authorizer.jwt.claims.email
+        overwrite:header.X-User-Oid: $context.authorizer.jwt.claims.sub
+        overwrite:header.X-User-Name: $context.authorizer.jwt.claims.name
+        overwrite:header.X-User-Rol: $context.authorizer.jwt.claims.rol
+
+  ClientePostIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: POST
+      IntegrationUri: !Ref WishlistListener
+      PayloadFormatVersion: '1.0'
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLink
+      TimeoutInMillis: 29000
+      RequestParameters:
+        overwrite:header.X-User: $context.authorizer.jwt.claims.email
+        overwrite:header.X-User-Oid: $context.authorizer.jwt.claims.sub
+        overwrite:header.X-User-Name: $context.authorizer.jwt.claims.name
+        overwrite:header.X-User-Rol: $context.authorizer.jwt.claims.rol
+
+  ClienteDeleteIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: DELETE
+      IntegrationUri: !Ref WishlistListener
+      PayloadFormatVersion: '1.0'
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLink
+      TimeoutInMillis: 29000
+      RequestParameters:
+        overwrite:header.X-User: $context.authorizer.jwt.claims.email
+        overwrite:header.X-User-Oid: $context.authorizer.jwt.claims.sub
+        overwrite:header.X-User-Name: $context.authorizer.jwt.claims.name
+        overwrite:header.X-User-Rol: $context.authorizer.jwt.claims.rol
+
   # -------------------------------------------------------------------------
   # Rutas.
   #
@@ -818,6 +1002,96 @@ Resources:
       AuthorizerId: !Ref AzureEntraAuthorizer
       AuthorizationScopes:
         - !Ref AuthorizationScopeName
+
+  # -------------------------------------------------------------------------
+  # Rutas del CLIENTE publico (Cognito). Todas son protegidas con el
+  # autorizador `cognito-clientes-jwt`: un token de Entra ID no sirve aqui y
+  # un token de Cognito no sirve en /api/admin/** (alli manda Entra ID).
+  #
+  # El prefijo /api/cliente lo atiende el mismo wishlist-service por alias de
+  # los controladores; los datos de un cliente quedan aislados por su email.
+  # -------------------------------------------------------------------------
+  RutaClientePerfil:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/cliente/perfil
+      Target: !Sub 'integrations/${ClienteGetIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref ClienteCognitoAuthorizer
+
+  RutaClienteFavoritosGet:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/cliente/favoritos
+      Target: !Sub 'integrations/${ClienteGetIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref ClienteCognitoAuthorizer
+
+  RutaClienteFavoritosPost:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: POST /api/cliente/favoritos
+      Target: !Sub 'integrations/${ClientePostIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref ClienteCognitoAuthorizer
+
+  RutaClienteFavoritoDelete:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: DELETE /api/cliente/favoritos/{propiedadId}
+      Target: !Sub 'integrations/${ClienteDeleteIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref ClienteCognitoAuthorizer
+
+  RutaClienteAlertasGet:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/cliente/alertas
+      Target: !Sub 'integrations/${ClienteGetIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref ClienteCognitoAuthorizer
+
+  RutaClienteAlertasPost:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: POST /api/cliente/alertas
+      Target: !Sub 'integrations/${ClientePostIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref ClienteCognitoAuthorizer
+
+  RutaClienteAlertaDelete:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: DELETE /api/cliente/alertas/{comuna}
+      Target: !Sub 'integrations/${ClienteDeleteIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref ClienteCognitoAuthorizer
+
+  RutaClienteNovedadesGet:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/cliente/novedades
+      Target: !Sub 'integrations/${ClienteGetIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref ClienteCognitoAuthorizer
+
+  RutaClienteNovedadDelete:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: DELETE /api/cliente/novedades/{id}
+      Target: !Sub 'integrations/${ClienteDeleteIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref ClienteCognitoAuthorizer
+
   # -------------------------------------------------------------------------
   # Stage en $default: la URL publica no lleva segmento de stage, que queda
   # https://{apiId}.execute-api.{region}.amazonaws.com/api/propiedades
@@ -885,3 +1159,22 @@ Outputs:
   WishlistListenerArn:
     Description: ARN del listener de wishlist, usado por las integraciones privadas.
     Value: !Ref WishlistListener
+
+  ClienteUserPoolId:
+    Description: User Pool de clientes publicos (Cognito).
+    Value: !Ref ClienteUserPool
+    Export:
+      Name: !Sub '${AWS::StackName}-ClienteUserPoolId'
+
+  ClienteUserPoolClientId:
+    Description: App client publico (sin secreto) que usa la SPA.
+    Value: !Ref ClienteUserPoolClient
+    Export:
+      Name: !Sub '${AWS::StackName}-ClienteUserPoolClientId'
+
+  ClienteCognitoIssuer:
+    Description: Issuer que valida API Gateway para los tokens de clientes.
+    Value: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${ClienteUserPool}'
+    Export:
+      Name: !Sub '${AWS::StackName}-ClienteCognitoIssuer'
+

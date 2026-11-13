@@ -7,6 +7,7 @@ import Login from './pages/Login'
 import Admin from './pages/Admin'
 import Dashboard from './pages/Dashboard'
 import Wishlist from './pages/Wishlist'
+import Cliente from './pages/Cliente'
 import './App.css'
 
 // Consume la ruta post-login guardada tras un inicio de sesion por
@@ -52,6 +53,8 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/wishlist" element={<Wishlist />} />
+            {/* Clientes publicos: identidad propia en Amazon Cognito (T02-T05). */}
+            <Route path="/cliente" element={<Cliente />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/dashboard" element={<Dashboard />} />
           </Routes>

@@ -29,7 +29,7 @@ import java.util.List;
  * se usa el email "usuario@local" para poder probar sin token.
  */
 @RestController
-@RequestMapping("/api/wishlist")
+@RequestMapping({"/api/wishlist", "/api/cliente"})
 public class WishlistController {
 
     private static final Logger log = LoggerFactory.getLogger(WishlistController.class);
