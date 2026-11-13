@@ -155,11 +155,13 @@ no agrega costo fijo al proyecto.
    | `GET /api/admin/kafka/{proxy+}` | `azure-entra-jwt` | el mismo scope |
    | `POST /api/admin/kafka/{proxy+}` | `azure-entra-jwt` | el mismo scope |
    | `DELETE /api/admin/kafka/{proxy+}` | `azure-entra-jwt` | el mismo scope |
+   | `POST /api/admin/notificaciones/{proxy+}` | `azure-entra-jwt` | el mismo scope |
 
    > Las rutas `{proxy+}` cubren el informe de propiedades
-   > (`POST /api/informes/propiedades/pdf`) y la administracion del broker
-   > (`/api/admin/rabbitmq/...`). Siguen exigiendo el access token de Entra ID;
-   > el microservicio aplica ademas el rol (ADMIN/CORREDOR).
+   > (`POST /api/informes/propiedades/pdf`), la administracion del broker
+   > (`/api/admin/rabbitmq/...`) y el barrido manual del resumen de novedades
+   > (`POST /api/admin/notificaciones/resumen`). Siguen exigiendo el access token
+   > de Entra ID; el microservicio aplica ademas el rol (ADMIN/CORREDOR).
 
    > El scope es lo que impide que un ID Token (que no trae `scp`) o un token de
    > Microsoft Graph se usen como credencial de esta API.
@@ -170,8 +172,13 @@ no agrega costo fijo al proyecto.
    - *Target service*: **ALB/NLB** → el listener del NLB interno en el 8081
      (`BackendListener`) para `/api/propiedades*`, `/api/informes*` y
      `/api/admin/*`; y el listener del NLB en el 8082 (`WishlistListener`) para
-     `/api/wishlist/*` y `/api/admin/kafka/*`. No se puede escribir una IP: la API
-     exige el ARN del listener.
+     `/api/wishlist/*`, `/api/admin/kafka/*` y `/api/admin/notificaciones/*`.
+     No se puede escribir una IP: la API exige el ARN del listener.
+
+     La ruta `POST /api/admin/notificaciones/{proxy+}` es **mas especifica** que
+     `POST /api/admin/{proxy+}`, asi que API Gateway la prefiere y el barrido
+     manual del resumen (`/api/admin/notificaciones/resumen`) llega al
+     wishlist-service (8082) en vez de a inmobiliaria-service (8081).
    - *Request parameters*, con el formato `<accion>:<ubicacion>.<nombre>`:
 
    | Clave | Valor |
@@ -194,7 +201,7 @@ no agrega costo fijo al proyecto.
 
 ```bash
 aws cloudformation deploy \
-  --stack-name inmobiliarias-api \
+  --stack-name api-inmobiliarias \
   --template-file backend/aws/api-gateway.yaml \
   --parameter-overrides \
       VpcId=vpc-12345678 \
@@ -206,6 +213,65 @@ aws cloudformation deploy \
 El NLB, su target group y el listener los crea el propio stack, asi que no hay
 que armarlos a mano. Devuelve la salida `ApiInvokeUrl`, que es el valor de
 `VITE_API_BASE_URL`.
+
+#### Actualizar un stack existente (change set)
+
+Para un cambio aditivo, como agregar la ruta del resumen de novedades, no hace
+falta recrear nada: se reutilizan los parametros que ya tiene el stack y se
+revisa el change set **antes** de ejecutarlo. El stack desplegado se llama
+`api-inmobiliarias` y vive en `us-east-1`.
+
+```bash
+S=api-inmobiliarias; R=us-east-1
+cd /tmp
+curl -fsSL -o api-gateway.yaml \
+  https://raw.githubusercontent.com/Mariajose205/InmobiliariasCloud/main/backend/aws/api-gateway.yaml
+grep -c RutaWishlistAdminNotificacionesPost api-gateway.yaml   # debe ser 1
+
+# Parametros actuales del stack (VpcId, subredes, instancia, etc.)
+aws cloudformation describe-stacks --stack-name $S --region $R \
+  --query 'Stacks[0].Parameters' > params.json
+
+python3 - <<'PY'
+import json
+inp = {
+  "StackName": "api-inmobiliarias",
+  "ChangeSetName": "agregar-ruta-notificaciones",
+  "ChangeSetType": "UPDATE",
+  "TemplateBody": open('/tmp/api-gateway.yaml').read(),
+  "Parameters": json.load(open('/tmp/params.json')),
+  "Capabilities": ["CAPABILITY_IAM", "CAPABILITY_NAMED_IAM"],
+}
+json.dump(inp, open('/tmp/changeset.json','w'))
+PY
+
+aws cloudformation create-change-set --region $R --cli-input-json file:///tmp/changeset.json
+sleep 15
+aws cloudformation describe-change-set --stack-name $S --region $R \
+  --change-set-name agregar-ruta-notificaciones \
+  --query 'Changes[].ResourceChange.[Action,LogicalResourceId,ResourceType]' --output text
+```
+
+Con `UPDATE_COMPLETE` + `AVAILABLE` y un unico `Add RutaWishlistAdminNotificacionesPost`,
+se aplica y se espera el cierre:
+
+```bash
+aws cloudformation execute-change-set --stack-name $S --region $R \
+  --change-set-name agregar-ruta-notificaciones
+aws cloudformation wait stack-update-complete --stack-name $S --region $R
+```
+
+Los stages de HTTP API con `AutoDeploy: true` toman la ruta al instante; no hay
+que publicar una version nueva ni tocar el frontend.
+
+Para comprobar que API Gateway enruto por la ruta nueva, el log de acceso
+`/aws/apigateway/<api-id>` registra el `routeKey` que hizo match:
+
+```bash
+aws logs tail /aws/apigateway/qe8w2nla3a --since 5m --format short \
+  | grep -i notificaciones | tail -3
+# "routeKey":"POST /api/admin/notificaciones/{proxy+}"  ... "status":"401" (sin token)
+```
 
 ---
 
