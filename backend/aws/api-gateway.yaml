@@ -255,10 +255,10 @@ Resources:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: inmobiliarias-clientes
-      # Essentials es el plan por defecto de los pools nuevos y el minimo que
+      # ESSENTIALS es el plan por defecto de los pools nuevos y el minimo que
       # habilita la personalizacion del ACCESS token (trigger V2_0). Incluye
       # 10.000 MAU gratis al mes, de sobra para el laboratorio.
-      UserPoolTier: Essentials
+      UserPoolTier: ESSENTIALS
       UsernameAttributes:
         - email
       AutoVerifiedAttributes:
