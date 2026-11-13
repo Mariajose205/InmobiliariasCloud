@@ -12,14 +12,16 @@ import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 
 /**
- * Novedad visible en la pagina principal para un usuario.
+ * Novedad de una propiedad nueva para un usuario.
  *
  * Cuando se publica una propiedad nueva en una comuna que el usuario sigue
  * (porque guardo un favorito en esa comuna), PropiedadNuevaNotificador guarda
- * una fila aqui por cada usuario afectado. El frontend la consulta con
- * GET /api/wishlist/novedades y la muestra al instante en Home, ademas del
- * correo que se envia de forma paralela. Asi la alerta llega "simultaneamente"
- * en la pagina y en el correo, sin que el usuario tenga que hacer nada.
+ * una fila aqui por cada usuario afectado, con resumenId = null (pendiente).
+ * Las novedades pendientes se agrupan cada `app.notificaciones.umbral`
+ * propiedades o en el barrido diario: al formarse el grupo se crea un
+ * ResumenNovedades, se enlazan estas filas con su resumenId y se envia UN
+ * solo correo. El frontend consulta GET /api/wishlist/novedades y muestra
+ * una alerta por resumen, no una por propiedad.
  */
 @Entity
 @Table(name = "wishlist_novedades",
@@ -52,6 +54,16 @@ public class Novedad {
     private String ubicacion;
 
     private String mensaje;
+
+    /**
+     * Resumen (digest) al que pertenece esta novedad.
+     *
+     * null = pendiente: aun no se ha enviado ningun correo con esta propiedad.
+     * Con valor = ya forma parte de un resumen enviado (o listo para mostrarse
+     * agrupado en Home).
+     */
+    @Column(name = "resumen_id")
+    private Long resumenId;
 
     @Column(name = "fecha_creacion", nullable = false)
     private Instant fechaCreacion;
@@ -157,6 +169,14 @@ public class Novedad {
 
     public void setMensaje(String mensaje) {
         this.mensaje = mensaje;
+    }
+
+    public Long getResumenId() {
+        return resumenId;
+    }
+
+    public void setResumenId(Long resumenId) {
+        this.resumenId = resumenId;
     }
 
     public Instant getFechaCreacion() {

@@ -5,7 +5,6 @@ import cl.inmobiliarias.wishlist.model.AlertaComuna;
 import cl.inmobiliarias.wishlist.model.Favorito;
 import cl.inmobiliarias.wishlist.repository.AlertaComunaRepository;
 import cl.inmobiliarias.wishlist.repository.FavoritoRepository;
-import cl.inmobiliarias.wishlist.repository.NovedadRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -34,9 +33,6 @@ class WishlistServiceTest {
 
     @Mock
     private AlertaComunaRepository alertaComunaRepository;
-
-    @Mock
-    private NovedadRepository novedadRepository;
 
     @InjectMocks
     private WishlistService service;

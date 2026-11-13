@@ -1,11 +1,11 @@
 package cl.inmobiliarias.wishlist.service.messaging;
 
-import cl.inmobiliarias.wishlist.dto.NotificacionSistemaEvent;
 import cl.inmobiliarias.wishlist.dto.PropiedadCreadaEvent;
 import cl.inmobiliarias.wishlist.model.AlertaComuna;
 import cl.inmobiliarias.wishlist.model.Novedad;
 import cl.inmobiliarias.wishlist.repository.AlertaComunaRepository;
 import cl.inmobiliarias.wishlist.repository.NovedadRepository;
+import cl.inmobiliarias.wishlist.service.ResumenNovedadesService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -20,12 +20,13 @@ import java.util.List;
 /**
  * Consumidor del topic propiedades-nuevas.
  *
- * Por cada propiedad nueva busca las alertas de esa comuna y genera dos
- * avisos simultaneos por usuario (sin accion manual del usuario):
- *   - una Novedad en BD para que la pagina principal la muestre al instante
- *     (GET /api/wishlist/novedades), y
- *   - una NotificacionSistemaEvent para que NotificacionDispatchConsumer
- *     envien el correo.
+ * Por cada propiedad nueva busca las alertas de esa comuna y deja una Novedad
+ * PENDIENTE por usuario (aun no se envia correo). Despues intenta crear el
+ * resumen: si el usuario ya acumulo el umbral (6 por defecto), se publica UN
+ * solo correo con todas las propiedades en vez de uno por propiedad. Lo que no
+ * alcanza el umbral se envia en el barrido diario (ResumenNovedadesScheduler).
+ *
+ * La pagina principal tambien ve las propiedades agrupadas por resumen.
  */
 @Service
 public class PropiedadNuevaNotificador {
@@ -34,14 +35,14 @@ public class PropiedadNuevaNotificador {
 
     private final AlertaComunaRepository alertaComunaRepository;
     private final NovedadRepository novedadRepository;
-    private final NotificacionKafkaPublisher publisher;
+    private final ResumenNovedadesService resumenService;
 
     public PropiedadNuevaNotificador(AlertaComunaRepository alertaComunaRepository,
                                      NovedadRepository novedadRepository,
-                                     NotificacionKafkaPublisher publisher) {
+                                     ResumenNovedadesService resumenService) {
         this.alertaComunaRepository = alertaComunaRepository;
         this.novedadRepository = novedadRepository;
-        this.publisher = publisher;
+        this.resumenService = resumenService;
     }
 
     @KafkaListener(topics = "${app.kafka.topics.propiedades-nuevas}",
@@ -81,7 +82,7 @@ public class PropiedadNuevaNotificador {
         }
         for (AlertaComuna alerta : alertas) {
             String mensaje = "Nueva propiedad en " + comuna + ": " + evento.getTitulo();
-            // 1) Novedad para la pagina principal ( visible al instante ).
+            // 1) Novedad PENDIENTE (visible en Home agrupada al formarse el resumen).
             try {
                 novedadRepository.save(new Novedad(
                         alerta.getUsuarioEmail(), alerta.getUsuarioOid(), comuna,
@@ -90,23 +91,13 @@ public class PropiedadNuevaNotificador {
                         evento.getUbicacion(), mensaje));
             } catch (RuntimeException ex) {
                 // La restriccion unica (usuario, propiedad) evita duplicados si
-                // el evento se reintenta: se ignora y se sigue con el correo.
+                // el evento se reintenta: se ignora y se sigue con el resumen.
                 log.warn("No se pudo guardar novedad para {} propiedad={}: {}",
                         alerta.getUsuarioEmail(), evento.getPropiedadId(), ex.getMessage());
             }
-            // 2) Correo via topic notificaciones-sistema.
-            NotificacionSistemaEvent notificacion = new NotificacionSistemaEvent();
-            notificacion.setDestinatarioEmail(alerta.getUsuarioEmail());
-            notificacion.setComuna(comuna);
-            notificacion.setPropiedadId(evento.getPropiedadId());
-            notificacion.setTitulo(evento.getTitulo());
-            notificacion.setPrecio(evento.getPrecio());
-            notificacion.setTipoPrecio(evento.getTipoPrecio());
-            notificacion.setUbicacion(evento.getUbicacion());
-            notificacion.setMensaje(mensaje);
-            publisher.publicar(notificacion);
-            log.info("Notificacion generada para {} por propiedad id={} en {}",
-                    alerta.getUsuarioEmail(), evento.getPropiedadId(), comuna);
+            // 2) Si el usuario llego al umbral, se crea UN resumen y se publica
+            //    UN solo correo con las propiedades acumuladas.
+            resumenService.crearSiAlcanzaUmbral(alerta.getUsuarioEmail(), alerta.getUsuarioOid());
         }
 
         if (ack != null) {

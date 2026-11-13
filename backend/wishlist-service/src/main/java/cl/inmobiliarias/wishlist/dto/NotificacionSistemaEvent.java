@@ -2,13 +2,18 @@ package cl.inmobiliarias.wishlist.dto;
 
 import jakarta.validation.constraints.NotBlank;
 
+import java.util.List;
+
 /**
  * Notificacion interna (topic notificaciones-sistema).
  *
- * La crea PropiedadNuevaNotificador a partir de PropiedadCreadaEvent y
- * la consume NotificacionDispatchConsumer, que finalmente envia el correo.
- * La clave Kafka es la comuna, para que los correos de una misma comuna
- * salgan ordenados por particion.
+ * La crea ResumenNovedadesService a partir de las novedades acumuladas y la
+ * consume NotificacionDispatchConsumer, que envia UN correo con el detalle.
+ * La clave Kafka es el correo del destinatario, para que los resumenes de un
+ * mismo usuario salgan ordenados en la misma particion.
+ *
+ * Los campos individuales (comuna, titulo, precio...) se conservan para poder
+ * procesar mensajes de versiones anteriores; el formato nuevo usa "items".
  */
 public class NotificacionSistemaEvent {
 
@@ -28,6 +33,15 @@ public class NotificacionSistemaEvent {
     private String ubicacion;
 
     private String mensaje;
+
+    /** Formato nuevo: cantidad de propiedades del resumen. */
+    private Integer cantidad;
+
+    /** Formato nuevo: comunas cubiertas por el resumen. */
+    private List<String> comunas;
+
+    /** Formato nuevo: detalle de las propiedades incluidas. */
+    private List<NotificacionItem> items;
 
     public NotificacionSistemaEvent() {
     }
@@ -94,5 +108,29 @@ public class NotificacionSistemaEvent {
 
     public void setMensaje(String mensaje) {
         this.mensaje = mensaje;
+    }
+
+    public Integer getCantidad() {
+        return cantidad;
+    }
+
+    public void setCantidad(Integer cantidad) {
+        this.cantidad = cantidad;
+    }
+
+    public List<String> getComunas() {
+        return comunas;
+    }
+
+    public void setComunas(List<String> comunas) {
+        this.comunas = comunas;
+    }
+
+    public List<NotificacionItem> getItems() {
+        return items;
+    }
+
+    public void setItems(List<NotificacionItem> items) {
+        this.items = items;
     }
 }

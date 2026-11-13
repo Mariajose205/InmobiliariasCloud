@@ -186,6 +186,12 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MAIL_HOST: mailhog
       MAIL_PORT: 1025
+      # Resumen de novedades: en vez de un correo por propiedad, el usuario
+      # recibe UN correo cada NOTIF_UMBRAL propiedades acumuladas y, ademas,
+      # un resumen diario con lo que quede pendiente (por defecto 20:00).
+      NOTIF_UMBRAL: ${NOTIF_UMBRAL:-6}
+      NOTIF_CRON: "${NOTIF_CRON:-0 0 20 * * *}"
+      NOTIF_ZONA: ${NOTIF_ZONA:-America/Santiago}
       # Con ${VAR:-default} se evita que una variable vacia (por ejemplo, un
       # .env sin definir) deje a admin/corredor sin rol y provoque 403.
       ADMIN_EMAIL: ${ADMIN_EMAIL:-administrador@inmobiliariaduoc.onmicrosoft.com}

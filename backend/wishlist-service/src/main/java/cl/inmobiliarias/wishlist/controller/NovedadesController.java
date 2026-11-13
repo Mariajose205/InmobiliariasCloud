@@ -1,9 +1,9 @@
 package cl.inmobiliarias.wishlist.controller;
 
-import cl.inmobiliarias.wishlist.model.Novedad;
+import cl.inmobiliarias.wishlist.dto.ResumenNovedadesResponse;
 import cl.inmobiliarias.wishlist.security.IdentidadInterceptor;
 import cl.inmobiliarias.wishlist.security.SeguridadProperties;
-import cl.inmobiliarias.wishlist.service.WishlistService;
+import cl.inmobiliarias.wishlist.service.ResumenNovedadesService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,36 +17,36 @@ import java.util.List;
 /**
  * Novedades automaticas visibles en la pagina principal.
  *
- * Se crean solas cuando se publica una propiedad nueva en una comuna
- * que el usuario sigue (PropiedadNuevaNotificador). No hay paso manual:
- * el usuario solo las ve y puede descartarlas.
+ * Ya no se muestra una entrada por propiedad: el backend agrupa las novedades
+ * en resumenes (cada 6 propiedades o en el barrido diario) y este endpoint
+ * devuelve UNA entrada por resumen con el detalle de sus propiedades.
  *
- * GET /api/wishlist/novedades -> lista para Home (polling cada ~15s)
- * DELETE /api/wishlist/novedades/{id} -> descarta una novedad
+ * GET /api/wishlist/novedades -> lista de resumenes (polling cada ~15s)
+ * DELETE /api/wishlist/novedades/{id} -> descarta el resumen y sus novedades
  */
 @RestController
 @RequestMapping("/api/wishlist/novedades")
 public class NovedadesController {
 
-    private final WishlistService service;
+    private final ResumenNovedadesService service;
     private final SeguridadProperties seguridad;
 
-    public NovedadesController(WishlistService service, SeguridadProperties seguridad) {
+    public NovedadesController(ResumenNovedadesService service, SeguridadProperties seguridad) {
         this.service = service;
         this.seguridad = seguridad;
     }
 
     @GetMapping
-    public List<Novedad> listar(
+    public List<ResumenNovedadesResponse> listar(
             @RequestAttribute(value = IdentidadInterceptor.ATTR_USUARIO, required = false) String usuario) {
-        return service.listarNovedades(resolverEmail(usuario));
+        return service.listarResumenes(resolverEmail(usuario));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> descartar(
             @PathVariable Long id,
             @RequestAttribute(value = IdentidadInterceptor.ATTR_USUARIO, required = false) String usuario) {
-        service.eliminarNovedad(resolverEmail(usuario), id);
+        service.descartarResumen(resolverEmail(usuario), id);
         return ResponseEntity.noContent().build();
     }
 

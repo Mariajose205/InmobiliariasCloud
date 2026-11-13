@@ -74,6 +74,19 @@ spring:
           starttls:
             enable: false
 
+# Resumen (digest) de novedades.
+#
+# En vez de un correo por cada propiedad, se acumulan las novedades del usuario
+# y se envia UN resumen al juntar `umbral` propiedades. Una vez al dia corre el
+# barrido `cron-resumen` para enviar lo que haya quedado pendiente (1..5), asi
+# nadie queda sin aviso aunque en su comuna se publiquen pocas propiedades.
+#
+# Variables de entorno (docker-compose): NOTIF_UMBRAL, NOTIF_CRON, NOTIF_ZONA.
+app.notificaciones:
+  umbral: ${NOTIF_UMBRAL:6}
+  cron-resumen: "${NOTIF_CRON:0 0 20 * * *}"
+  zona: ${NOTIF_ZONA:America/Santiago}
+
 # Topicos Kafka del flujo "nueva propiedad -> aviso por comuna"
 # (ver DTO PropiedadCreadaEvent, KafkaNewTopicConfig y PropiedadNuevaNotificador).
 # Los nombres se leen desde KafkaProperties para evitar literales sueltos.

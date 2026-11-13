@@ -12,7 +12,6 @@ import { haySesion } from '../msalConfig';
 import {
   obtenerPropiedadesPublicas,
   obtenerFavoritos,
-  obtenerAlertas,
   obtenerNovedades,
   descartarNovedad,
   extraerComunaLocal,
@@ -45,19 +44,20 @@ function Home() {
     return () => clearTimeout(timer);
   }, [location.hash]);
 
-  // Banner de novedades + contadores
+  // Contador de favoritos.
   const [totalGuardadas, setTotalGuardadas] = useState(0);
-  // Novedades que vienen del backend (GET /api/wishlist/novedades).
-  // Se crean solas cuando admin/corredor publica en una comuna seguida.
-  // Tambien se mantiene el polling del catalogo como respaldo local.
-  const [novedades, setNovedades] = useState([]);
-  const novedadesIdsRef = useRef(new Set());
+
+  // Resumenes (digests) que vienen del backend (GET /api/wishlist/novedades).
+  // El backend agrupa las propiedades nuevas: un solo resumen cada 6
+  // propiedades (o el barrido diario). Aqui se muestra UNA alerta por
+  // resumen, con el detalle de sus propiedades dentro, en lugar de una
+  // alerta por propiedad.
+  const [resumenes, setResumenes] = useState([]);
+  // Resumenes descartados en esta sesion: evita que reaparezcan mientras
+  // el DELETE viaja al backend y el polling vuelve a consultar.
+  const descartadosRef = useRef(new Set());
 
   // Refs para el polling (evitan recrear el intervalo con cierres obsoletos)
-  const seenIdsRef = useRef(new Set());
-  const favoritosIdsRef = useRef(new Set());
-  const comunasActivasRef = useRef(new Set());
-  const primerSnapshotRef = useRef(false);
   const filtroRef = useRef(filtro);
   const filtroComunaRef = useRef(filtroComuna);
   useEffect(() => { filtroRef.current = filtro; }, [filtro]);
@@ -65,12 +65,6 @@ function Home() {
 
   const normalizar = (valor) => (valor || '').toString().trim().toLowerCase();
   const normalizarComuna = (valor) => (valor || '').toString().trim().toLowerCase();
-  const normalizarComunaComparacion = (valor) =>
-    String(valor || '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .trim();
 
   // Filtra combinando categoria + comuna (extraerComunaLocal)
   const aplicarFiltros = (lista, catSeleccionada, comunaSeleccionada) => {
@@ -92,13 +86,6 @@ function Home() {
       const lista = propiedadesData || [];
       setTodasLasPropiedades(lista);
       setPropiedades(aplicarFiltros(lista, filtroRef.current, filtroComunaRef.current));
-      // Primer snapshot: todo lo visible al cargar ya se considera visto
-      // para que el polling solo avise de ids nuevos posteriores.
-      if (!primerSnapshotRef.current) {
-        const ids = new Set(lista.map((p) => String(p.id)).filter((v) => v && v !== 'undefined'));
-        seenIdsRef.current = new Set([...seenIdsRef.current, ...ids]);
-        primerSnapshotRef.current = true;
-      }
     } catch (error) {
       console.error("Error al cargar propiedades:", error);
       setTodasLasPropiedades([]);
@@ -116,16 +103,6 @@ function Home() {
     setPropiedades(aplicarFiltros(todasLasPropiedades, filtro, comunaSeleccionada));
   };
 
-  const esReciente24h = (p) => {
-    // fechaCreacion puede venir como ISO / Instant de Java. Si no existe,
-    // se omite el chequeo: solo manda el "id nuevo vs primer snapshot".
-    const valor = p?.fechaCreacion;
-    if (!valor) return true;
-    const fecha = new Date(valor);
-    if (Number.isNaN(fecha.getTime())) return true;
-    return Date.now() - fecha.getTime() <= 24 * 60 * 60 * 1000;
-  };
-
   const scrollAlCatalogo = () => {
     const el = document.getElementById('propiedades');
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -134,91 +111,93 @@ function Home() {
   const cargarIntereses = async () => {
     if (!isLoggedIn) {
       setTotalGuardadas(0);
-      favoritosIdsRef.current = new Set();
-      comunasActivasRef.current = new Set();
       return;
     }
-
-    let favoritos = [];
     try {
       const favoritosData = await obtenerFavoritos();
-      favoritos = Array.isArray(favoritosData)
+      const favoritos = Array.isArray(favoritosData)
         ? favoritosData
         : (favoritosData?.favoritos || []);
-      const ids = new Set(
-        favoritos
-          .map((item) => item?.propiedadId ?? item?.id ?? item)
-          .filter((valor) => valor !== null && valor !== undefined && valor !== '')
-          .map((valor) => String(valor))
-      );
-      favoritosIdsRef.current = ids;
       setTotalGuardadas(favoritos.length);
     } catch (_) {
-      // Silencioso: sin favoritos no hay comunas activas por esta via.
+      // Silencioso: sin favoritos no se muestra el contador.
       setTotalGuardadas(0);
-      favoritosIdsRef.current = new Set();
+    }
+  };
+
+  // Convierte una propiedad del resumen al formato interno de la alerta.
+  const normalizarItem = (item) => {
+    if (!item) return null;
+    const propiedadId = item.propiedadId ?? item.id ?? null;
+    const titulo = item.titulo ?? item.mensaje ?? null;
+    if (propiedadId == null && !titulo) return null;
+    return {
+      propiedadId,
+      titulo,
+      comuna: item.comuna || extraerComunaLocal(item.ubicacion) || '',
+      precio: item.precio ?? null,
+      tipoPrecio: item.tipoPrecio || '',
+      ubicacion: item.ubicacion || ''
+    };
+  };
+
+  // Normaliza la respuesta del backend. Formato nuevo: cada elemento es un
+  // resumen con `items`. Formato antiguo (backend sin desplegar): cada
+  // elemento es una novedad individual; se agrupan todas en UN solo resumen
+  // sintetico para no volver a mostrar una alerta por propiedad.
+  const normalizarResumenes = (datos) => {
+    const lista = Array.isArray(datos) ? datos : (datos?.resumenes || datos?.novedades || []);
+    const normalizados = [];
+    const legado = [];
+
+    lista.forEach((n) => {
+      if (!n) return;
+      if (Array.isArray(n.items) && n.items.length > 0) {
+        const items = n.items.map(normalizarItem).filter(Boolean);
+        if (items.length === 0) return;
+        normalizados.push({
+          clave: `resumen-${n.id}`,
+          id: n.id ?? null,
+          cantidad: n.cantidad ?? items.length,
+          comunas: Array.isArray(n.comunas)
+            ? n.comunas.filter(Boolean)
+            : [...new Set(items.map((i) => i.comuna).filter(Boolean))],
+          titulo: n.titulo || null,
+          fechaCreacion: n.fechaCreacion || null,
+          items,
+          legadoIds: []
+        });
+      } else if (normalizarItem(n)) {
+        legado.push({ id: n.id ?? null, item: normalizarItem(n) });
+      }
+    });
+
+    if (legado.length > 0) {
+      const items = legado.map((l) => l.item);
+      normalizados.push({
+        clave: 'legado',
+        id: null,
+        cantidad: items.length,
+        comunas: [...new Set(items.map((i) => i.comuna).filter(Boolean))],
+        titulo: null,
+        fechaCreacion: null,
+        items,
+        legadoIds: legado.map((l) => l.id).filter((id) => id != null)
+      });
     }
 
-    let alertasComunas = [];
-    try {
-      const alertasData = await obtenerAlertas();
-      const lista = Array.isArray(alertasData)
-        ? alertasData
-        : (alertasData?.alertas || alertasData?.comunas || []);
-      alertasComunas = lista
-        .map((item) => (typeof item === 'string' ? item : item?.comuna ?? item?.nombre ?? null))
-        .filter(Boolean);
-    } catch (_) {
-      // Silencioso si falla con 404 u otro error (no debe romper Home).
-      alertasComunas = [];
-    }
-
-    const comunas = new Set();
-    favoritos.forEach((fav) => {
-      const c = fav?.comuna || extraerComunaLocal(fav?.ubicacion);
-      if (c) comunas.add(normalizarComunaComparacion(c));
-    });
-    alertasComunas.forEach((c) => {
-      if (c) comunas.add(normalizarComunaComparacion(c));
-    });
-    comunasActivasRef.current = comunas;
+    return normalizados;
   };
 
   const cargarNovedadesBackend = async () => {
     if (!isLoggedIn) return;
     try {
       const datos = await obtenerNovedades();
-      const lista = Array.isArray(datos) ? datos : (datos?.novedades || []);
-      // Solo muestra las que aun no se vieron en esta sesion (para no
-      // repetir banners si el usuario recarga, se guarda el id visto).
-      const nuevas = [];
-      lista.forEach((n) => {
-        const key = String(n.id ?? n.propiedadId);
-        if (!key || key === 'undefined') return;
-        if (novedadesIdsRef.current.has(key)) return;
-        novedadesIdsRef.current.add(key);
-        nuevas.push({
-          id: n.id,
-          propiedadId: n.propiedadId,
-          propiedad: {
-            id: n.propiedadId,
-            titulo: n.titulo,
-            precio: n.precio,
-            tipoPrecio: n.tipoPrecio,
-            ubicacion: n.ubicacion
-          },
-          comuna: n.comuna,
-          mensaje: n.mensaje,
-          origen: 'backend'
-        });
-      });
-      if (nuevas.length > 0) {
-        setNovedades((prev) => [...nuevas, ...prev]);
-      }
+      const lista = normalizarResumenes(datos)
+        .filter((r) => !descartadosRef.current.has(r.clave));
+      setResumenes(lista);
     } catch (_) {
       // Silencioso: el polling de novedades no debe romper la pagina.
-      // Si el endpoint aun no existe (despliegue viejo), el catalogo
-      // polling de respaldo seguira avisando.
     }
   };
 
@@ -228,24 +207,24 @@ function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Carga de favoritos + alertas (solo con sesion) para calcular comunas activas
+  // Carga de favoritos + resumenes (solo con sesion)
   useEffect(() => {
     cargarIntereses();
     cargarNovedadesBackend();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn]);
 
-  // Cuando cambia el login, limpia banners viejos
+  // Cuando cambia el login, limpia resumenes viejos
   useEffect(() => {
     if (!isLoggedIn) {
-      setNovedades([]);
-      novedadesIdsRef.current = new Set();
+      setResumenes([]);
+      descartadosRef.current = new Set();
     }
   }, [isLoggedIn]);
 
-  // Polling simultaneo: novedades del backend + catalogo de respaldo cada 15s.
-  // La alerta llega sola, sin boton "Avisarme": basta con guardar un favorito
-  // en la comuna para empezar a recibir avisos de nuevas publicaciones.
+  // Polling: resumenes del backend + refresco del catalogo cada 15s.
+  // Ya NO se crean alertas locales por cada propiedad nueva del catalogo:
+  // las novedades solo llegan agrupadas desde el backend para no saturar.
   useEffect(() => {
     if (!isLoggedIn) return undefined;
     const intervalo = setInterval(async () => {
@@ -256,60 +235,46 @@ function Home() {
         // Refresca el catalogo en segundo plano sin romper filtros aplicados
         setTodasLasPropiedades(lista);
         setPropiedades(aplicarFiltros(lista, filtroRef.current, filtroComunaRef.current));
-
-        const comunasActivas = comunasActivasRef.current;
-        const favoritosIds = favoritosIdsRef.current;
-        const nuevas = [];
-        lista.forEach((p) => {
-          const id = String(p.id);
-          if (!id || id === 'undefined') return;
-          if (seenIdsRef.current.has(id)) return;
-          // Marcar visto apenas se evalua (no repetir en el proximo ciclo)
-          seenIdsRef.current.add(id);
-          if (favoritosIds.has(id)) return;
-          if (comunasActivas.size === 0) return;
-          const comuna = extraerComunaLocal(p.ubicacion);
-          if (!comuna || !comunasActivas.has(normalizarComunaComparacion(comuna))) return;
-          if (!esReciente24h(p)) return;
-          // Evita duplicar si ya llego por novedades del backend
-          if (novedadesIdsRef.current.has(String(p.id))) return;
-          novedadesIdsRef.current.add(String(p.id));
-          nuevas.push({ propiedad: p, comuna, origen: 'catalogo' });
-        });
-        if (nuevas.length > 0) {
-          setNovedades((prev) => [...nuevas, ...prev]);
-        }
       } catch (_) {
         // Silencioso: el polling no debe romper la pagina.
       }
-      // Refresca intereses cada ~4 ciclos para que nuevas comunas seguidas
-      // por favoritos tambien generen avisos sin recargar.
-      // (cargarIntereses es barato: solo 2 GET autenticados)
       await cargarIntereses();
     }, 15000);
     return () => clearInterval(intervalo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn]);
 
-  const cerrarNovedad = async (novedad) => {
-    const id = novedad?.id;
-    const pid = String(novedad?.propiedad?.id ?? novedad?.propiedadId ?? '');
-    setNovedades((prev) =>
-      prev.filter((n) => {
-        if (id != null && String(n.id) === String(id)) return false;
-        if (pid && String(n.propiedad?.id ?? n.propiedadId) === pid && n.origen === 'backend') return false;
-        if (pid && String(n.propiedad?.id) === pid) return false;
-        return true;
-      })
-    );
-    // Si vino del backend, borra la fila para que no reaparezca.
-    if (id != null && novedad?.origen === 'backend' && isLoggedIn) {
-      try {
-        await descartarNovedad(id);
-      } catch (_) {
-        // Silencioso.
+  const descartarResumen = async (resumen) => {
+    descartadosRef.current.add(resumen.clave);
+    setResumenes((prev) => prev.filter((r) => r.clave !== resumen.clave));
+    if (!isLoggedIn) return;
+    try {
+      if (resumen.id != null) {
+        await descartarNovedad(resumen.id);
+      } else {
+        // Formato antiguo: se borra cada novedad que compone el grupo.
+        for (const id of resumen.legadoIds) {
+          await descartarNovedad(id);
+        }
       }
+    } catch (_) {
+      // Silencioso: si falla, el resumen reaparece en el proximo polling.
     }
+  };
+
+  const tituloResumen = (resumen) => {
+    if (resumen.titulo) return resumen.titulo;
+    const donde = resumen.comunas?.length ? resumen.comunas.join(', ') : 'tus comunas';
+    return resumen.cantidad === 1
+      ? `1 nueva propiedad en ${donde}`
+      : `${resumen.cantidad} nuevas propiedades en ${donde}`;
+  };
+
+  const precioTexto = (item) => {
+    if (item?.precio === null || item?.precio === undefined || item?.precio === '') return '';
+    const numero = Number(item.precio);
+    const base = Number.isNaN(numero) ? String(item.precio) : numero.toLocaleString('es-CL');
+    return item.tipoPrecio ? `${base} ${item.tipoPrecio}` : base;
   };
 
   return (
@@ -318,26 +283,24 @@ function Home() {
       <HeroSection />
 
       <Container className="mb-3">
-        {novedades.length > 0 && (
+        {resumenes.length > 0 && (
           <Alert variant="success" className="alert-novedad mb-2">
             <i className="bi bi-bell-fill me-2"></i>
-            ¡Tienes {novedades.length} {novedades.length === 1 ? 'novedad' : 'novedades'} en tus comunas!
+            ¡Tienes {resumenes.length} {resumenes.length === 1 ? 'resumen' : 'resumenes'} de novedades en tus comunas!
           </Alert>
         )}
-        {novedades.map((novedad) => {
-          const propiedad = novedad.propiedad || {};
-          const comuna = novedad.comuna || extraerComunaLocal(propiedad.ubicacion) || '';
-          return (
-            <Alert
-              key={String(novedad.id ?? propiedad.id)}
-              variant="success"
-              dismissible
-              className="alert-novedad d-flex align-items-center justify-content-between"
-              onClose={() => cerrarNovedad(novedad)}
-            >
-              <span>
+        {resumenes.map((resumen) => (
+          <Alert
+            key={resumen.clave}
+            variant="success"
+            dismissible
+            className="alert-novedad"
+            onClose={() => descartarResumen(resumen)}
+          >
+            <div className="d-flex align-items-center justify-content-between">
+              <span className="fw-semibold">
                 <i className="bi bi-bell-fill me-2"></i>
-                ¡Nueva propiedad en {comuna}: {propiedad.titulo || novedad.mensaje}!
+                {tituloResumen(resumen)}
               </span>
               <Button
                 size="sm"
@@ -347,9 +310,19 @@ function Home() {
               >
                 Ver
               </Button>
-            </Alert>
-          );
-        })}
+            </div>
+            <ul className="mb-0 mt-2 ps-4">
+              {resumen.items.map((item, indice) => (
+                <li key={`${resumen.clave}-${item.propiedadId ?? indice}`}>
+                  {item.titulo || 'Propiedad'}
+                  {item.comuna ? ` (${item.comuna})` : ''}
+                  {precioTexto(item) ? ` - $${precioTexto(item)}` : ''}
+                  {item.ubicacion ? ` - ${item.ubicacion}` : ''}
+                </li>
+              ))}
+            </ul>
+          </Alert>
+        ))}
 
         {isLoggedIn && totalGuardadas > 0 && (
           <Alert variant="info" className="alert-novedad d-flex align-items-center justify-content-between">

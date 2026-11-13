@@ -208,16 +208,22 @@ export function obtenerAlertas() {
 }
 
 /**
- * Novedades automaticas para la pagina principal.
- * El backend las crea cuando se publica una nueva propiedad en una comuna
- * que el usuario sigue; Home las sondea cada ~15s y muestra el banner.
+ * Resumenes (digests) de novedades para la pagina principal.
+ * El backend acumula las propiedades nuevas de las comunas que el usuario
+ * sigue y las agrupa: un resumen cada N propiedades (6 por defecto) y un
+ * barrido diario con lo que quede pendiente. Home las sondea cada ~15s y
+ * muestra UNA alerta por resumen, con el detalle de cada propiedad.
  */
 export function obtenerNovedades() {
   return apiFetchAutenticado('/api/wishlist/novedades');
 }
 
-export function descartarNovedad(novedadId) {
-  return apiFetchAutenticado(`/api/wishlist/novedades/${novedadId}`, {
+/**
+ * Descarta un resumen completo (y sus novedades asociadas) para que no
+ * vuelva a aparecer en Home.
+ */
+export function descartarNovedad(resumenId) {
+  return apiFetchAutenticado(`/api/wishlist/novedades/${resumenId}`, {
     method: 'DELETE'
   });
 }

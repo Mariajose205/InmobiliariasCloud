@@ -799,6 +799,25 @@ Resources:
       AuthorizerId: !Ref AzureEntraAuthorizer
       AuthorizationScopes:
         - !Ref AuthorizationScopeName
+
+  # -------------------------------------------------------------------------
+  # Resumen de novedades (digest) del wishlist-service.
+  #
+  # POST /api/admin/notificaciones/resumen fuerza el barrido diario para
+  # enviar los pendientes sin esperar al CRON (util en la demo). Es mas
+  # especifica que /api/admin/{proxy+}, que apunta a inmobiliaria-service,
+  # asi que API Gateway la prefiere y la peticion llega al 8082.
+  # -------------------------------------------------------------------------
+  RutaWishlistAdminNotificacionesPost:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: POST /api/admin/notificaciones/{proxy+}
+      Target: !Sub 'integrations/${WishlistPostIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
   # -------------------------------------------------------------------------
   # Stage en $default: la URL publica no lleva segmento de stage, que queda
   # https://{apiId}.execute-api.{region}.amazonaws.com/api/propiedades

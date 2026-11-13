@@ -2,6 +2,7 @@ package cl.inmobiliarias.wishlist;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Punto de entrada del microservicio de favoritos (wishlist).
@@ -13,6 +14,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * y reenvia la identidad en las cabeceras X-User, X-User-Oid y X-User-Name.
  */
 @SpringBootApplication
+@EnableScheduling
 public class WishlistServiceApplication {
 
     public static void main(String[] args) {
