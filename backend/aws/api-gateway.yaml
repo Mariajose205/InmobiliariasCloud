@@ -699,6 +699,11 @@ Resources:
   # de Cognito no existe `preferred_username` ni `oid`, y en su lugar el
   # trigger agrega `email`, `name` y `rol`. API Gateway copia esos claims a
   # las cabeceras X-User* (overwrite: el cliente no puede inyectarlas).
+  #
+  # El mapeo usa `$context.authorizer.claims.<claim>`, la variable de contexto
+  # de los authorizers JWT en HTTP APIs. La variante con `jwt.claims` en medio
+  # pertenece al evento de una integracion Lambda: en el mapeo de parametros
+  # resuelve vacia y deja las cabeceras sin valor.
   ClienteGetIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
@@ -711,10 +716,10 @@ Resources:
       ConnectionId: !Ref VpcLink
       TimeoutInMillis: 29000
       RequestParameters:
-        overwrite:header.X-User: $context.authorizer.jwt.claims.email
-        overwrite:header.X-User-Oid: $context.authorizer.jwt.claims.sub
-        overwrite:header.X-User-Name: $context.authorizer.jwt.claims.name
-        overwrite:header.X-User-Rol: $context.authorizer.jwt.claims.rol
+        overwrite:header.X-User: $context.authorizer.claims.email
+        overwrite:header.X-User-Oid: $context.authorizer.claims.sub
+        overwrite:header.X-User-Name: $context.authorizer.claims.name
+        overwrite:header.X-User-Rol: $context.authorizer.claims.rol
 
   ClientePostIntegration:
     Type: AWS::ApiGatewayV2::Integration
@@ -728,10 +733,10 @@ Resources:
       ConnectionId: !Ref VpcLink
       TimeoutInMillis: 29000
       RequestParameters:
-        overwrite:header.X-User: $context.authorizer.jwt.claims.email
-        overwrite:header.X-User-Oid: $context.authorizer.jwt.claims.sub
-        overwrite:header.X-User-Name: $context.authorizer.jwt.claims.name
-        overwrite:header.X-User-Rol: $context.authorizer.jwt.claims.rol
+        overwrite:header.X-User: $context.authorizer.claims.email
+        overwrite:header.X-User-Oid: $context.authorizer.claims.sub
+        overwrite:header.X-User-Name: $context.authorizer.claims.name
+        overwrite:header.X-User-Rol: $context.authorizer.claims.rol
 
   ClienteDeleteIntegration:
     Type: AWS::ApiGatewayV2::Integration
@@ -745,10 +750,10 @@ Resources:
       ConnectionId: !Ref VpcLink
       TimeoutInMillis: 29000
       RequestParameters:
-        overwrite:header.X-User: $context.authorizer.jwt.claims.email
-        overwrite:header.X-User-Oid: $context.authorizer.jwt.claims.sub
-        overwrite:header.X-User-Name: $context.authorizer.jwt.claims.name
-        overwrite:header.X-User-Rol: $context.authorizer.jwt.claims.rol
+        overwrite:header.X-User: $context.authorizer.claims.email
+        overwrite:header.X-User-Oid: $context.authorizer.claims.sub
+        overwrite:header.X-User-Name: $context.authorizer.claims.name
+        overwrite:header.X-User-Rol: $context.authorizer.claims.rol
 
   # -------------------------------------------------------------------------
   # Rutas.
