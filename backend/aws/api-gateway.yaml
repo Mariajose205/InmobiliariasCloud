@@ -245,14 +245,20 @@ Resources:
   # confirmacion por codigo, login, refresh y forgot-password.
   #
   # El rol viaja en el claim `rol=CLIENTE`, que agrega el trigger
-  # PreTokenGeneration. No se puede falsificar desde el navegador porque el
-  # claim lo escribe Cognito al emitir el token, y API Gateway lo copia a la
-  # cabecera X-User-Rol pisando cualquier valor del cliente.
+  # PreTokenGeneration. Se usa el evento V2_0 (y no V1_0) porque V1_0 solo
+  # personaliza el ID token, y el authorizer JWT de API Gateway valida el
+  # ACCESS token. El claim lo escribe Cognito al emitir el token, no el
+  # navegador, y API Gateway lo copia a X-User-Rol pisando lo que mande el
+  # cliente.
   # -------------------------------------------------------------------------
   ClienteUserPool:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: inmobiliarias-clientes
+      # Essentials es el plan por defecto de los pools nuevos y el minimo que
+      # habilita la personalizacion del ACCESS token (trigger V2_0). Incluye
+      # 10.000 MAU gratis al mes, de sobra para el laboratorio.
+      UserPoolTier: Essentials
       UsernameAttributes:
         - email
       AutoVerifiedAttributes:
@@ -275,7 +281,9 @@ Resources:
       LambdaConfig:
         PreTokenGenerationConfig:
           LambdaArn: !GetAtt ClienteRolFunction.Arn
-          LambdaVersion: V1_0
+          # V2_0 permite agregar claims tambien al ACCESS token; con V1_0
+          # Cognito solo personalizaba el ID token.
+          LambdaVersion: V2_0
 
   ClienteUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
@@ -331,16 +339,24 @@ Resources:
         - !Ref ClienteRolLambdaRoleArn
       Code:
         ZipFile: |
-          // Pre Token Generation V1: agrega a los tokens del cliente el rol
+          // Pre Token Generation V2: agrega a los tokens del cliente el rol
           // del negocio y los datos que API Gateway reenvia al microservicio.
+          //
+          // El evento V2_0 trae acceso a los dos tokens. Es imprescindible
+          // porque el authorizer JWT de API Gateway valida el ACCESS token:
+          // con V1_0 los claims solo llegaban al ID token y las cabeceras
+          // X-User* se quedaban vacias.
           exports.handler = async (event) => {
             const attrs = event.request.userAttributes || {};
-            event.response = event.response || {};
-            event.response.claimsOverrideDetails = {
-              claimsToAddOrOverride: {
-                rol: 'CLIENTE',
-                email: attrs.email || '',
-                name: attrs.name || ''
+            const claims = {
+              rol: 'CLIENTE',
+              email: attrs.email || '',
+              name: attrs.name || ''
+            };
+            event.response = {
+              claimsAndScopeOverrideDetails: {
+                idTokenGeneration: { claimsToAddOrOverride: claims },
+                accessTokenGeneration: { claimsToAddOrOverride: claims }
               }
             };
             return event;
