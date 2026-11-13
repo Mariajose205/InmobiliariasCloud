@@ -122,6 +122,17 @@ Parameters:
       172.31.0.0/16). Acota la salida del VPC Link hacia el microservicio. Un
       CIDR equivocado hace que la API responda 504 Integration timeout.
 
+  # --- Lambda del trigger de Cognito (rol en el token) --------------------
+  ClienteRolLambdaRoleArn:
+    Type: String
+    Default: ''
+    Description: >
+      ARN de un rol IAM existente que confie en lambda.amazonaws.com y pueda
+      escribir en CloudWatch Logs. En las cuentas de laboratorio, donde la
+      politica del usuario no permite iam:CreateRole, se pasa un rol ya
+      existente (por ejemplo, LabRole). Si se deja vacio, el stack crea su
+      propio rol ClienteRolFunctionRole.
+
   # --- Limites de trafico -------------------------------------------------
   ThrottlingRateLimit:
     Type: Number
@@ -142,6 +153,9 @@ Parameters:
 
 Conditions:
   ConOrigenDev: !Equals [!Ref IncludeDevOrigin, 'true']
+  # true = no se recibio ARN: el stack crea su propio rol. false = se
+  # reutiliza el rol recibido (laboratorio sin permiso iam:CreateRole).
+  CrearRolLambda: !Equals [!Ref ClienteRolLambdaRoleArn, '']
 
 Resources:
 
@@ -292,6 +306,7 @@ Resources:
 
   ClienteRolFunctionRole:
     Type: AWS::IAM::Role
+    Condition: CrearRolLambda
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -310,7 +325,10 @@ Resources:
       Runtime: nodejs20.x
       Handler: index.handler
       Timeout: 5
-      Role: !GetAtt ClienteRolFunctionRole.Arn
+      Role: !If
+        - CrearRolLambda
+        - !GetAtt ClienteRolFunctionRole.Arn
+        - !Ref ClienteRolLambdaRoleArn
       Code:
         ZipFile: |
           // Pre Token Generation V1: agrega a los tokens del cliente el rol
