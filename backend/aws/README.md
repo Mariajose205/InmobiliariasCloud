@@ -430,6 +430,13 @@ Un cliente que intente `/api/propiedades` (POST) o `/api/auditoria` no llega
 ni al microservicio: el authorizer de Entra rechaza su token de Cognito. Y si
 llegara, el interceptor responde 403 porque su rol no alcanza.
 
+Cada ruta de `/api/cliente/**` declara además `AuthorizationScopes` con
+`aws.cognito.signin.user.admin`. Ese `scope` viaja **solo** en el access token
+(claim `scope`), así que un ID token de Cognito —que comparte issuer y
+`aud`/`client_id` con el access token— recibe 401. Sin esa línea el
+authorizer los aceptaría a los dos, porque no hay nada en el JWT que indique
+`token_use` de forma estándar.
+
 ### 7.4 Mapeo de cabeceras: `$context.authorizer.claims.*`
 
 En las integraciones de cliente:
@@ -549,8 +556,10 @@ prestado. El permiso de invocación (`ClienteRolFunctionPermission`, con
 | `frontend-react/.env.production` | `VITE_COGNITO_REGION`, `VITE_COGNITO_USER_POOL_ID`, `VITE_COGNITO_CLIENT_ID` |
 
 > El ID token **no** se usa para llamar a la API: el authorizer espera un
-> access token. Si por error se envía el ID token, el authorizer lo rechaza con
-> 401 (su `aud` es el app client y su `token_use` es `id`).
+> access token. Las rutas de `/api/cliente/**` exigen el scope
+> `aws.cognito.signin.user.admin`, que solo aparece en el claim `scope` del
+> access token; un ID token (aunque comparte issuer y `aud`) no lo trae y
+> recibe **401**.
 
 ---
 

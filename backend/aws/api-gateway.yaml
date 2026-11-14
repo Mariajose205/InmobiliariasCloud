@@ -1051,6 +1051,12 @@ Resources:
   #
   # El prefijo /api/cliente lo atiende el mismo wishlist-service por alias de
   # los controladores; los datos de un cliente quedan aislados por su email.
+  #
+  # Todas exigen el scope `aws.cognito.signin.user.admin`, que viene en el
+  # ACCESS token de Cognito (claim `scope`). El ID token no tiene ese claim y
+  # por eso recibe 401: sin la linea `AuthorizationScopes` el authorizer lo
+  # aceptaria, porque ambos tokens comparten issuer y `aud`/`client_id`. Es la
+  # forma que recomienda AWS para separar el access token del ID token.
   # -------------------------------------------------------------------------
   RutaClientePerfil:
     Type: AWS::ApiGatewayV2::Route
@@ -1060,6 +1066,8 @@ Resources:
       Target: !Sub 'integrations/${ClienteGetIntegration}'
       AuthorizationType: JWT
       AuthorizerId: !Ref ClienteCognitoAuthorizer
+      AuthorizationScopes:
+        - aws.cognito.signin.user.admin
 
   RutaClienteFavoritosGet:
     Type: AWS::ApiGatewayV2::Route
@@ -1069,6 +1077,8 @@ Resources:
       Target: !Sub 'integrations/${ClienteGetIntegration}'
       AuthorizationType: JWT
       AuthorizerId: !Ref ClienteCognitoAuthorizer
+      AuthorizationScopes:
+        - aws.cognito.signin.user.admin
 
   RutaClienteFavoritosPost:
     Type: AWS::ApiGatewayV2::Route
@@ -1078,6 +1088,8 @@ Resources:
       Target: !Sub 'integrations/${ClientePostIntegration}'
       AuthorizationType: JWT
       AuthorizerId: !Ref ClienteCognitoAuthorizer
+      AuthorizationScopes:
+        - aws.cognito.signin.user.admin
 
   RutaClienteFavoritoDelete:
     Type: AWS::ApiGatewayV2::Route
@@ -1087,6 +1099,8 @@ Resources:
       Target: !Sub 'integrations/${ClienteDeleteIntegration}'
       AuthorizationType: JWT
       AuthorizerId: !Ref ClienteCognitoAuthorizer
+      AuthorizationScopes:
+        - aws.cognito.signin.user.admin
 
   RutaClienteAlertasGet:
     Type: AWS::ApiGatewayV2::Route
@@ -1096,6 +1110,8 @@ Resources:
       Target: !Sub 'integrations/${ClienteGetIntegration}'
       AuthorizationType: JWT
       AuthorizerId: !Ref ClienteCognitoAuthorizer
+      AuthorizationScopes:
+        - aws.cognito.signin.user.admin
 
   RutaClienteAlertasPost:
     Type: AWS::ApiGatewayV2::Route
@@ -1105,6 +1121,8 @@ Resources:
       Target: !Sub 'integrations/${ClientePostIntegration}'
       AuthorizationType: JWT
       AuthorizerId: !Ref ClienteCognitoAuthorizer
+      AuthorizationScopes:
+        - aws.cognito.signin.user.admin
 
   RutaClienteAlertaDelete:
     Type: AWS::ApiGatewayV2::Route
@@ -1114,6 +1132,8 @@ Resources:
       Target: !Sub 'integrations/${ClienteDeleteIntegration}'
       AuthorizationType: JWT
       AuthorizerId: !Ref ClienteCognitoAuthorizer
+      AuthorizationScopes:
+        - aws.cognito.signin.user.admin
 
   RutaClienteNovedadesGet:
     Type: AWS::ApiGatewayV2::Route
@@ -1123,6 +1143,8 @@ Resources:
       Target: !Sub 'integrations/${ClienteGetIntegration}'
       AuthorizationType: JWT
       AuthorizerId: !Ref ClienteCognitoAuthorizer
+      AuthorizationScopes:
+        - aws.cognito.signin.user.admin
 
   RutaClienteNovedadDelete:
     Type: AWS::ApiGatewayV2::Route
@@ -1132,6 +1154,8 @@ Resources:
       Target: !Sub 'integrations/${ClienteDeleteIntegration}'
       AuthorizationType: JWT
       AuthorizerId: !Ref ClienteCognitoAuthorizer
+      AuthorizationScopes:
+        - aws.cognito.signin.user.admin
 
   # -------------------------------------------------------------------------
   # Stage en $default: la URL publica no lleva segmento de stage, que queda
