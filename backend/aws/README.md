@@ -558,7 +558,7 @@ prestado. El permiso de invocación (`ClienteRolFunctionPermission`, con
 | Archivo | Rol |
 |---|---|
 | `frontend-react/src/cognito/config.js` | Lee `VITE_COGNITO_*` y crea el `CognitoUserPool` (tokens en `sessionStorage`) |
-| `frontend-react/src/cognito/auth.js` | Registro, confirmación, login SRP, refresh, forgot-password, sesión en `localStorage` |
+| `frontend-react/src/cognito/auth.js` | Registro, confirmación, login SRP, refresh, forgot-password y cierre con revocación (tokens en `sessionStorage`) |
 | `frontend-react/src/api/apiCliente.js` | Llama a `/api/cliente/**` con `Authorization: Bearer <access_token>` |
 | `frontend-react/src/components/PropertyCatalog.jsx` | Botón "Guardar": usa `/api/cliente/favoritos` si hay sesión de cliente y `/api/wishlist/favoritos` si es staff |
 | `frontend-react/src/pages/Cliente.jsx` | Formularios y panel del cliente |
@@ -579,7 +579,83 @@ prestado. El permiso de invocación (`ClienteRolFunctionPermission`, con
 
 ---
 
-## 8. Problemas frecuentes
+## 8. Dashboard del administrador con datos reales
+
+`frontend-react/src/pages/Dashboard.jsx` ya no usa cifras fijas: combina tres
+fuentes que se piden en paralelo con `Promise.allSettled` (si una falla, el
+resto se sigue mostrando y aparece un aviso).
+
+| Fuente | Qué aporta |
+|---|---|
+| `GET /api/propiedades` (pública) | Total del catálogo, venta/arriendo, categorías, comunas (`ubicacion`), precios y publicaciones por mes (`fechaCreacion`). |
+| `GET /api/admin/estadisticas` (ADMIN) | Favoritos totales, clientes distintos, alertas por comuna, resúmenes de novedades y rankings de propiedades/comunas más guardadas. |
+| `GET /api/auditoria` (ADMIN) | Actividad reciente (quién creó/editó/eliminó y cuándo). |
+
+### 8.1 Métricas que calcula el wishlist-service
+
+`EstadisticasService` lee las tablas de favoritos, alertas y resúmenes y
+devuelve:
+
+```json
+{
+  "totalFavoritos": 12,
+  "clientesConFavoritos": 3,
+  "totalAlertas": 7,
+  "clientesConAlertas": 2,
+  "totalResumenes": 4,
+  "resumenesEnviados": 4,
+  "topPropiedadesGuardadas": [{ "propiedadId": 5, "titulo": "Casa en Quillota", "guardados": 4 }],
+  "topComunasFavoritos": [{ "comuna": "Quillota", "guardados": 6 }],
+  "topComunasAlertas": [{ "comuna": "Quillota", "seguidores": 3 }]
+}
+```
+
+El cálculo se hace en memoria porque el volumen del laboratorio es chico; con
+más datos cada cifra debería pasar a un `count`/`group by` en el repositorio.
+
+### 8.2 Ruta en API Gateway
+
+La ruta exacta gana sobre el comodín `GET /api/admin/{proxy+}` (que apunta a
+inmobiliaria-service), así que la petición llega al wishlist-service:
+
+```yaml
+RutaAdminEstadisticas:
+  Type: AWS::ApiGatewayV2::Route
+  Properties:
+    ApiId: !Ref InmobiliariaApi
+    RouteKey: GET /api/admin/estadisticas
+    Target: !Sub 'integrations/${WishlistGetIntegration}'
+    AuthorizationType: JWT
+    AuthorizerId: !Ref AzureEntraAuthorizer
+    AuthorizationScopes:
+      - !Ref AuthorizationScopeName
+```
+
+`IdentidadInterceptor` vuelve a exigir el rol ADMIN con `X-User-Rol`; un
+CORREDOR recibe 403 y sin token la respuesta es 401 del authorizer.
+
+### 8.3 Criterios de las cifras
+
+- **Venta / Arriendo**: comparación sin distinguir mayúsculas sobre
+  `tipoOperacion`.
+- **Comunas**: se usa `extraerComunaLocal` (misma normalización que el
+  catálogo). Las ubicaciones que no calzan se informan aparte, no se agrupan
+  como si fueran una comuna.
+- **Publicaciones por mes**: últimos 12 meses calendario según
+  `fechaCreacion`; el mes actual se resalta.
+- **Comisión estimada**: 3 % del valor de las propiedades en venta con precio
+  informado. Es una estimación declarada en la tarjeta, no una cifra contable.
+- **Precios**: se excluyen precios nulos o cero al promediar; se muestran
+  promedios separados para venta y arriendo.
+
+> Para desplegarlo: subir el cambio de `api-gateway.yaml` como change set en
+> CloudShell, esperar `CREATE_COMPLETE` y verificar
+> `GET /api/admin/estadisticas` con token de staff (200) y sin token (401).
+> El frontend se publica solo con el workflow de GitHub Actions.
+
+---
+
+## 9. Problemas frecuentes
 
 | Síntoma | Causa probable | Solución |
 |---|---|---|
@@ -604,7 +680,7 @@ prestado. El permiso de invocación (`ClienteRolFunctionPermission`, con
 
 ---
 
-## 9. Costo aproximado
+## 10. Costo aproximado
 
 Una HTTP API cobra **USD 1,00 por millón de peticiones** (el free tier cubre
 1 millón al mes durante los primeros 12 meses) más la transferencia de salida. No
@@ -615,7 +691,7 @@ stage (100 rps sostenidos, 200 en ráfaga) protege contra abuso accidental.
 
 ---
 
-## 10. Archivos relacionados
+## 11. Archivos relacionados
 
 | Archivo | Rol |
 |---|---|
@@ -627,5 +703,8 @@ stage (100 rps sostenidos, 200 en ráfaga) protege contra abuso accidental.
 | `backend/wishlist-service/.../security/IdentidadInterceptor.java` | Misma matriz, aplicada a `/api/cliente/**` |
 | `backend/wishlist-service/.../controller/PerfilClienteController.java` | `GET /api/cliente/perfil` |
 | `backend/wishlist-service/.../config/ApiGatewayWebConfig.java` | Registro del interceptor para `/api/cliente/**` |
+| `backend/wishlist-service/.../service/EstadisticasService.java` | Cálculo de favoritos, alertas y resúmenes para el dashboard |
+| `backend/wishlist-service/.../controller/admin/EstadisticasAdminController.java` | `GET /api/admin/estadisticas` |
+| `frontend-react/src/pages/Dashboard.jsx` | Dashboard del admin con datos reales (catálogo + wishlist + auditoría) |
 | `frontend-react/src/cognito/auth.js` | Flujos de Cognito (SRP, refresh, forgot-password) |
 | `DIAGRAMA_ARQUITECTURA.md` | Diagramas y tabla de responsabilidades |

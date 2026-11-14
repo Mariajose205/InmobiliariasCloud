@@ -1045,6 +1045,25 @@ Resources:
         - !Ref AuthorizationScopeName
 
   # -------------------------------------------------------------------------
+  # Metricas reales del dashboard del administrador (T13).
+  #
+  # GET /api/admin/estadisticas devuelve favoritos, alertas y resumenes de
+  # novedades calculados por el wishlist-service. La ruta exacta gana sobre
+  # GET /api/admin/{proxy+} (que va a inmobiliaria-service); el rol ADMIN lo
+  # vuelve a exigir IdentidadInterceptor con la cabecera X-User-Rol.
+  # -------------------------------------------------------------------------
+  RutaAdminEstadisticas:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/admin/estadisticas
+      Target: !Sub 'integrations/${WishlistGetIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref AzureEntraAuthorizer
+      AuthorizationScopes:
+        - !Ref AuthorizationScopeName
+
+  # -------------------------------------------------------------------------
   # Rutas del CLIENTE publico (Cognito). Todas son protegidas con el
   # autorizador `cognito-clientes-jwt`: un token de Entra ID no sirve aqui y
   # un token de Cognito no sirve en /api/admin/** (alli manda Entra ID).

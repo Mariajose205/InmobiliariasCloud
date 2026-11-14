@@ -135,6 +135,15 @@ export function obtenerAuditoria() {
 }
 
 /**
+ * Metricas del lado del cliente que calcula el wishlist-service:
+ * favoritos, alertas por comuna y resumenes de novedades enviados.
+ * Solo ADMIN (GET /api/admin/estadisticas).
+ */
+export function obtenerEstadisticasAdmin() {
+  return apiFetchAutenticado('/api/admin/estadisticas');
+}
+
+/**
  * Solicita la generacion asincrona del informe PDF de propiedades.
  *
  * El backend publica la peticion en RabbitMQ y responde 202 Accepted; el PDF
