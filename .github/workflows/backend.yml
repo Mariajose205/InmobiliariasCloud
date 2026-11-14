@@ -36,6 +36,11 @@ jobs:
         with:
           context: backend/inmobiliaria-service
           push: true
+          # Cache de capas en el almacenamiento de GitHub Actions: sin esto
+          # cada run vuelve a descargar todo Maven Central en el paso
+          # `dependency:go-offline` y un timeout puntual tumba el pipeline.
+          cache-from: type=gha,scope=inmobiliaria-service
+          cache-to: type=gha,mode=max,scope=inmobiliaria-service
           tags: |
             ${{ secrets.DOCKER_HUB_USERNAME }}/inmobiliaria-service:latest
             ${{ secrets.DOCKER_HUB_USERNAME }}/inmobiliaria-service:${{ github.sha }}
@@ -49,6 +54,8 @@ jobs:
         with:
           context: backend/wishlist-service
           push: true
+          cache-from: type=gha,scope=wishlist-service
+          cache-to: type=gha,mode=max,scope=wishlist-service
           tags: |
             ${{ secrets.DOCKER_HUB_USERNAME }}/wishlist-service:latest
             ${{ secrets.DOCKER_HUB_USERNAME }}/wishlist-service:${{ github.sha }}

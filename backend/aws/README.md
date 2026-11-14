@@ -27,8 +27,9 @@ Navegador ──HTTPS──> API Gateway (HTTP API) ──VPC Link──> inmobi
 
 Lo que hace cada capa:
 
-- **API Gateway**: CORS, validación del access token de Azure Entra ID, throttling,
-  logs de acceso, y reenvío de la identidad del usuario en cabeceras.
+- **API Gateway**: CORS, validación del JWT (Entra ID para el staff, Cognito
+  para los clientes), throttling, logs de acceso, y reenvío de la identidad del
+  usuario en cabeceras.
 - **`inmobiliaria-service`**: decide qué puede hacer cada rol y registra la auditoría.
 - **`wishlist-service`**: favoritos, alertas por comuna y novedades; consume Kafka
   y comparte PostgreSQL con el servicio de propiedades.
@@ -329,7 +330,231 @@ Con token real, en la consola del navegador:
 
 ---
 
-## 7. Problemas frecuentes
+## 7. Clientes públicos con Amazon Cognito
+
+El staff (ADMIN y CORREDOR) entra con Microsoft Entra ID, que es el IDaaS
+corporativo. Los clientes del portal no tienen cuenta corporativa, así que se
+registran solos en un **User Pool de Amazon Cognito**. Cada público se
+autentica contra el proveedor que le corresponde y la API tiene **un authorizer
+JWT por proveedor**, aplicado según el prefijo de la ruta:
+
+```
+Navegador ──/api/cliente/**──> authorizer Cognito ──┐
+   (clientes)                                        ├──> wishlist-service :8082
+Navegador ──/api/** (staff)──> authorizer Entra ID ─┘
+```
+
+| Recurso | Valor |
+|---|---|
+| User Pool | `us-east-1_VOjUlX3N7` (`inmobiliarias-clientes`, region `us-east-1`) |
+| App client | `5c7ke1lrusghqkkio0682f6qvb` — sin secreto, porque es una SPA |
+| Issuer | `https://cognito-idp.us-east-1.amazonaws.com/us-east-1_VOjUlX3N7` |
+| Plan del pool | `ESSENTIALS` |
+| Authorizer | `ClienteCognitoAuthorizer` (JWT; `Issuer` + `Audience` = app client) |
+| Rutas protegidas | las 9 rutas de `/api/cliente/**` |
+| Salidas del stack | `ClienteUserPoolId`, `ClienteUserPoolClientId`, `ClienteCognitoIssuer` |
+
+El authorizer valida **issuer y audience**, no solo la firma: un token de otro
+User Pool (o de otro app client) se rechaza aunque su firma sea válida.
+
+### 7.1 Por qué el pool es `ESSENTIALS`
+
+El authorizer valida el **access token**, y para agregarle claims propios hace
+falta el evento **`V2_0`** del trigger `PreTokenGeneration`. Ese evento solo
+existe en los planes Essentials y Plus: `LITE` únicamente soporta `V1_0`, que
+personaliza el ID token y nada más. Es el error que se ve como "el login
+funciona pero las cabeceras `X-User*` llegan vacías".
+
+Dos detalles de la plantilla que cuestan un change set fallido si se cambian:
+
+- `UserPoolTier: ESSENTIALS` — el enum es **sensible a mayúsculas**;
+  `Essentials` lo rechaza la validación temprana de CloudFormation
+  (`AWS::EarlyValidation::PropertyValidation`).
+- El plan `ESSENTIALS` incluye 10.000 MAU gratis al mes, de sobra para el
+  laboratorio.
+
+### 7.2 Flujos del cliente
+
+Sin *hosted UI*: el registro y el login son pantallas propias de la SPA
+(`frontend-react/src/pages/Cliente.jsx`) y hablan con Cognito mediante
+`amazon-cognito-identity-js` (SRP, la contraseña nunca viaja al servidor).
+
+| Flujo | Llamada de Cognito | Dónde está |
+|---|---|---|
+| Registro con email | `SignUp` → envía código de 6 dígitos | `registrar()` en `src/cognito/auth.js` |
+| Confirmación | `ConfirmSignUp` con el código | `confirmar()` |
+| Login | `InitiateAuth` (`USER_SRP_AUTH`) | `iniciarSesion()` |
+| Refresh | `InitiateAuth` (`REFRESH_TOKEN_AUTH`) | `refrescarSesion()` |
+| Recuperar contraseña | `ForgotPassword` + `ConfirmForgotPassword` | `recuperarPassword()` / `cambiarPassword()` |
+
+Configuración del app client en la plantilla:
+
+- `GenerateSecret: false` (una SPA no puede guardar un secreto).
+- `ExplicitAuthFlows`: `ALLOW_USER_SRP_AUTH`, `ALLOW_REFRESH_TOKEN_AUTH` y
+  `ALLOW_USER_PASSWORD_AUTH`. La última está **solo para poder probar el flujo
+  con AWS CLI** (`initiate-auth`); el frontend nunca la usa.
+- `AccessTokenValidity: 60` minutos, `RefreshTokenValidity: 30` días,
+  `EnableTokenRevocation: true`.
+- `PreventUserExistenceErrors: ENABLED`: "usuario inexistente" y "contraseña
+  incorrecta" devuelven el mismo error, así el formulario no sirve para
+  enumerar correos registrados.
+- `UsernameAttributes: [email]`: el usuario se identifica por correo. Cognito
+  guarda internamente un `sub` (UUID) como *username*, así que los comandos
+  administrativos usan ese UUID, no el correo.
+
+### 7.3 El rol vive en el claim `rol`
+
+El `ClienteRolFunction` (trigger `PreTokenGeneration` con `V2_0`) agrega a los
+**dos** tokens:
+
+```json
+"rol": "CLIENTE", "email": "...", "name": "..."
+```
+
+No se puede falsificar desde el navegador: el claim lo escribe Cognito al
+emitir el token, y API Gateway copia el claim del token ya validado a la
+cabecera `X-User-Rol` con `overwrite:`, es decir **pisa** cualquier valor que
+mande el cliente. Por eso `X-User` y `X-User-Rol` no están en `AllowHeaders`
+del CORS.
+
+El backend (`IdentidadInterceptor`) normaliza `OPERADOR` → `CORREDOR` y aplica
+la matriz por prefijo:
+
+| Prefijo | Rol exigido | Un CLIENTE de Cognito |
+|---|---|---|
+| `/api/cliente/**` | `CLIENTE` | 200 |
+| `/api/admin/**` | `ADMIN` | 401 (lo corta el authorizer de Entra) |
+| resto autenticado | `ADMIN` o `CORREDOR` | 401 |
+
+Un cliente que intente `/api/propiedades` (POST) o `/api/auditoria` no llega
+ni al microservicio: el authorizer de Entra rechaza su token de Cognito. Y si
+llegara, el interceptor responde 403 porque su rol no alcanza.
+
+### 7.4 Mapeo de cabeceras: `$context.authorizer.claims.*`
+
+En las integraciones de cliente:
+
+```yaml
+RequestParameters:
+  overwrite:header.X-User: $context.authorizer.claims.email
+  overwrite:header.X-User-Oid: $context.authorizer.claims.sub
+  overwrite:header.X-User-Name: $context.authorizer.claims.name
+  overwrite:header.X-User-Rol: $context.authorizer.claims.rol
+```
+
+`$context.authorizer.claims.<claim>` es la variable de contexto de los
+authorizers JWT en **HTTP APIs**. La variante `$context.authorizer.jwt.claims.
+<claim>` pertenece al evento de una **integración Lambda**: en el mapeo de
+parámetros resuelve vacía y las cabeceras llegan sin valor, con lo que el
+microservicio responde:
+
+```json
+{"error": "Acceso denegado: la peticion no fue validada por el API Gateway."}
+```
+
+Las integraciones de staff usan los claims de Entra (`preferred_username`,
+`oid`, `name`) y las dos rutas públicas del catálogo no mapean nada: sin
+authorizer, `$context.authorizer` no existe y las variables quedarían sin
+resolver.
+
+### 7.5 Pruebas con AWS CLI (T02-T05)
+
+```bash
+REGION=us-east-1
+API=https://qe8w2nla3a.execute-api.us-east-1.amazonaws.com
+CLIENT=5c7ke1lrusghqkkio0682f6qvb
+POOL=us-east-1_VOjUlX3N7
+EMAIL=cliente.demo.1794611290@example.com
+PASS='Cliente1234'
+
+# T02 - registro (devuelve CodeDeliveryDetails: el codigo va al correo)
+aws cognito-idp sign-up --region $REGION --client-id $CLIENT \
+  --username "$EMAIL" --password "$PASS" \
+  --user-attributes Name=name,Value="Cliente Demo"
+
+# Confirmacion (admin, equivalente a ConfirmSignUp con el codigo del correo)
+aws cognito-idp admin-confirm-sign-up --region $REGION \
+  --user-pool-id $POOL --username "$EMAIL"
+aws cognito-idp admin-update-user-attributes --region $REGION \
+  --user-pool-id $POOL --username "$EMAIL" \
+  --user-attributes Name=email_verified,Value=true
+
+# T02 - login y refresh
+AUTH=$(aws cognito-idp initiate-auth --region $REGION --client-id $CLIENT \
+  --auth-flow USER_PASSWORD_AUTH \
+  --auth-parameters "USERNAME=$EMAIL,PASSWORD=$PASS" \
+  --query AuthenticationResult --output json)
+ACCESS=$(echo "$AUTH" | jq -r .AccessToken)
+REFRESH=$(echo "$AUTH" | jq -r .RefreshToken)
+
+aws cognito-idp initiate-auth --region $REGION --client-id $CLIENT \
+  --auth-flow REFRESH_TOKEN_AUTH \
+  --auth-parameters "REFRESH_TOKEN=$REFRESH" \
+  --query 'AuthenticationResult.{Access:AccessToken,Expira:ExpiresIn}'
+
+# T02 - forgot-password
+aws cognito-idp forgot-password --region $REGION --client-id $CLIENT \
+  --username "$EMAIL"
+
+# T05 - el rol viaja en el claim (no hace falta decodificar a mano)
+echo "$ACCESS" | cut -d. -f2 | base64 -d 2>/dev/null | jq .
+
+# T03 - rutas protegidas con access_token
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -H "Authorization: Bearer $ACCESS" "$API/api/cliente/perfil"      # 200
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -H "Authorization: Bearer $ACCESS" "$API/api/cliente/favoritos"   # 200
+
+# T04 - sin token
+curl -s -o /dev/null -w "%{http_code}\n" "$API/api/cliente/perfil"  # 401
+
+# T05 - el token de cliente NO sirve para el staff
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -H "Authorization: Bearer $ACCESS" "$API/api/admin/kafka/topicos" # 401
+```
+
+Respuesta esperada de `GET /api/cliente/perfil`:
+
+```json
+{
+  "email": "cliente.demo.1794611290@example.com",
+  "nombre": "Cliente Demo",
+  "oid": "7438b458-70a1-7054-069e-3583a61141b9",
+  "rol": "CLIENTE"
+}
+```
+
+### 7.6 Rol de IAM del trigger
+
+En una cuenta normal la plantilla crea el rol `ClienteRolFunctionRole`. En
+cuentas de laboratorio donde `iam:CreateRole` está denegado, se pasa el ARN de
+un rol existente:
+
+```bash
+--parameter-overrides ClienteRolLambdaRoleArn=arn:aws:iam::<cuenta>:role/LabRole
+```
+
+Con ese parámetro la condicion `CrearRolLambda` es falsa y el trigger usa el rol
+prestado. El permiso de invocación (`ClienteRolFunctionPermission`, con
+`SourceArn` = ARN del pool) se crea igual.
+
+### 7.7 Frontend
+
+| Archivo | Rol |
+|---|---|
+| `frontend-react/src/cognito/config.js` | Lee `VITE_COGNITO_*` y crea el `CognitoUserPool` |
+| `frontend-react/src/cognito/auth.js` | Registro, confirmación, login SRP, refresh, forgot-password, sesión en `localStorage` |
+| `frontend-react/src/api/apiCliente.js` | Llama a `/api/cliente/**` con `Authorization: Bearer <access_token>` |
+| `frontend-react/src/pages/Cliente.jsx` | Formularios y panel del cliente |
+| `frontend-react/.env.production` | `VITE_COGNITO_REGION`, `VITE_COGNITO_USER_POOL_ID`, `VITE_COGNITO_CLIENT_ID` |
+
+> El ID token **no** se usa para llamar a la API: el authorizer espera un
+> access token. Si por error se envía el ID token, el authorizer lo rechaza con
+> 401 (su `aud` es el app client y su `token_use` es `id`).
+
+---
+
+## 8. Problemas frecuentes
 
 | Síntoma | Causa probable | Solución |
 |---|---|---|
@@ -345,10 +570,15 @@ Con token real, en la consola del navegador:
 | Error CORS en el navegador pero `curl` funciona | Origen no listado, o falta declarar `Content-Type` | Revisa `AllowOrigins` y `AllowHeaders` en la configuración de la API. |
 | La auditoría dice `desconocido` | El token no trae `preferred_username` | Falls back al `oid`. Revisa `X-User-Oid` en el mapeo de la integración. |
 | `Network Link for VPC Link ... not found` | Subnets en VPC equivocada | `VpcLinkSubnetIds` debe ser de la VPC del EC2 de backend. |
+| `403` `"Acceso denegado: la peticion no fue validada por el API Gateway."` en `/api/cliente/**` con token válido | Las integraciones mapean `$context.authorizer.jwt.claims.*` (vacío en HTTP APIs) | Usar `$context.authorizer.claims.<claim>`. Verificar con `aws apigatewayv2 get-integrations --api-id <id> --query "Items[?RequestParameters]"`. |
+| El login de Cognito funciona pero el access token no trae `rol` | El trigger `PreTokenGeneration` está en `V1_0` | Cambiar a `LambdaVersion: V2_0` (requiere `UserPoolTier: ESSENTIALS`) y volver a iniciar sesión: el claim se escribe al emitir el token, los tokens ya emitidos no cambian. |
+| `Essentials is not a valid enum value` al crear el change set | El enum del `UserPoolTier` es sensible a mayúsculas | `UserPoolTier: ESSENTIALS`. El detalle de la validación se ve con `aws cloudformation describe-events --stack-name <stack> --change-set-name <cs> --filters FailedEvents=true`. |
+| `AlreadyExists` / `NotAuthorizedException` en `sign-up` | El correo ya está registrado o se usó `admin-create-user` | Usar un correo nuevo (`cliente.demo.<epoch>@example.com`). Con `UsernameAttributes: email`, el *username* interno es un UUID: los comandos admin necesitan ese UUID o el correo, no el nombre. |
+| `InvalidParameterException: Missing required parameter USERNAME` en `admin-confirm-sign-up` | Se pasó el UUID como `--username` cuando el pool identifica por email | Pasar el correo en `--username`. |
 
 ---
 
-## 8. Costo aproximado
+## 9. Costo aproximado
 
 Una HTTP API cobra **USD 1,00 por millón de peticiones** (el free tier cubre
 1 millón al mes durante los primeros 12 meses) más la transferencia de salida. No
@@ -359,7 +589,7 @@ stage (100 rps sostenidos, 200 en ráfaga) protege contra abuso accidental.
 
 ---
 
-## 9. Archivos relacionados
+## 10. Archivos relacionados
 
 | Archivo | Rol |
 |---|---|
@@ -368,4 +598,8 @@ stage (100 rps sostenidos, 200 en ráfaga) protege contra abuso accidental.
 | `backend/inmobiliaria-service/.../security/SeguridadProperties.java` | Emails y oids de ADMIN y CORREDOR |
 | `backend/inmobiliaria-service/.../controller/MeController.java` | `GET /api/me` |
 | `backend/inmobiliaria-service/.../config/ApiGatewayWebConfig.java` | Registro del interceptor (sin CORS) |
+| `backend/wishlist-service/.../security/IdentidadInterceptor.java` | Misma matriz, aplicada a `/api/cliente/**` |
+| `backend/wishlist-service/.../controller/PerfilClienteController.java` | `GET /api/cliente/perfil` |
+| `backend/wishlist-service/.../config/ApiGatewayWebConfig.java` | Registro del interceptor para `/api/cliente/**` |
+| `frontend-react/src/cognito/auth.js` | Flujos de Cognito (SRP, refresh, forgot-password) |
 | `DIAGRAMA_ARQUITECTURA.md` | Diagramas y tabla de responsabilidades |
