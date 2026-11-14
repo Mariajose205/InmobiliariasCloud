@@ -193,43 +193,6 @@ export function haySesionCliente() {
   return Boolean(obtenerSesionCliente());
 }
 
-/** Claims utiles del access_token vigente (para mostrar en "Mi cuenta"). */
-export function obtenerClaimsTokenCliente() {
-  const usuario = userPool?.getCurrentUser();
-  if (!usuario) return null;
-
-  // getCurrentUser() devuelve un CognitoUser nuevo sin sesion en memoria, asi
-  // que getSignInUserSession() normalmente es null. El token se lee del mismo
-  // storage que usa el SDK.
-  let token = null;
-  try {
-    token = usuario.getSignInUserSession()?.getAccessToken()?.getJwtToken() || null;
-  } catch (_) {
-    token = null;
-  }
-  if (!token) {
-    try {
-      token = userPool?.storage?.getItem(
-        `CognitoIdentityServiceProvider.${COGNITO_CLIENT_ID}.${usuario.getUsername()}.accessToken`
-      );
-    } catch (_) {
-      token = null;
-    }
-  }
-  if (!token) return null;
-
-  const claims = decodificarJwt(token);
-  return {
-    iss: claims.iss,
-    client_id: claims.client_id || claims.aud,
-    token_use: claims.token_use,
-    exp: claims.exp,
-    rol: claims.rol,
-    email: claims.email,
-    sub: claims.sub
-  };
-}
-
 /** Registro de un cliente nuevo: email, contrasena, nombre y apellido. */
 export function registrarCliente(email, password, nombre, apellido) {
   return new Promise((resolve, reject) => {

@@ -20,7 +20,6 @@ import {
   confirmarRegistroCliente,
   haySesionCliente,
   iniciarSesionCliente,
-  obtenerClaimsTokenCliente,
   obtenerSesionCliente,
   reenviarCodigoConfirmacion,
   registrarCliente,
@@ -71,7 +70,6 @@ function Cliente() {
   // Datos del cliente autenticado
   const [seccion, setSeccion] = useState('perfil');
   const [perfil, setPerfil] = useState(null);
-  const [claims, setClaims] = useState(null);
   const [favoritos, setFavoritos] = useState([]);
   const [alertas, setAlertas] = useState([]);
   const [novedades, setNovedades] = useState([]);
@@ -122,7 +120,6 @@ function Cliente() {
       }
 
       setPerfil(perfilData.value);
-      setClaims(obtenerClaimsTokenCliente());
 
       setFavoritos(
         favoritosData.status === 'fulfilled' ? comoLista(favoritosData.value, 'favoritos') : []
@@ -305,7 +302,6 @@ function Cliente() {
     limpiarMensajes();
     try {
       const { expira } = await renovarTokenCliente();
-      setClaims(obtenerClaimsTokenCliente());
       setAviso(`Token renovado. Vence a las ${new Date(expira * 1000).toLocaleTimeString('es-CL')}.`);
     } catch (err) {
       if (err?.code === 'SESSION_EXPIRED') {
@@ -650,18 +646,6 @@ function Cliente() {
                 </Button>
               </div>
             </div>
-
-            {claims && (
-              <div className="mt-3 pt-3 border-top small text-muted">
-                <div>
-                  <strong>Token:</strong> tipo <code>{claims.token_use}</code>, rol en claim{' '}
-                  <code>{claims.rol || '(sin rol)'}</code>, cliente <code>{claims.client_id}</code>
-                </div>
-                <div className="text-truncate">
-                  <strong>Issuer:</strong> <code>{claims.iss}</code>
-                </div>
-              </div>
-            )}
           </Card.Body>
         </Card>
 

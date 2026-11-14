@@ -89,9 +89,6 @@ rabbitmq:
     fanout: inmobiliaria.fanout
     # Exchange direct que enruta el trabajo de generacion de PDF.
     direct: inmobiliaria.direct
-    # Exchange topic que enruta los eventos del dominio "propiedades" por
-    # patron de routing key (propiedades.eventos.#).
-    topic: inmobiliaria.topic
     # Dead Letter Exchanges (destino de mensajes fallidos).
     dlx: inmobiliaria.dlx
   queues:
@@ -99,25 +96,15 @@ rabbitmq:
     correos-notificaciones: cola.correos.notificaciones
     # Generacion del informe PDF de propiedades.
     pdf-procesamiento: cola.pdf.procesamiento
-    # Bitacora asincrona de eventos sobre propiedades (topic exchange).
-    propiedades-auditoria: cola.propiedades.auditoria
     # Dead Letter Queues.
     correos-notificaciones-dlq: cola.correos.notificaciones.dlq
     pdf-procesamiento-dlq: cola.pdf.procesamiento.dlq
-    propiedades-auditoria-dlq: cola.propiedades.auditoria.dlq
   routing-keys:
     # Ruta usada por el exchange direct para el trabajo de PDF.
     pdf: informe.pdf.generar
-    # Routing keys del exchange topic por accion del dominio propiedades.
-    propiedades-eventos-crear: propiedades.eventos.creada
-    propiedades-eventos-editar: propiedades.eventos.editar
-    propiedades-eventos-eliminar: propiedades.eventos.eliminar
-    # Patron del binding topic -> cola de auditoria (wildcard multi-nivel).
-    propiedades-eventos-patron: propiedades.eventos.#
     # Rutas de enrutado hacia las DLQ.
     correos-notificaciones-dlq: correos.notificaciones.dlq
     pdf-procesamiento-dlq: pdf.procesamiento.dlq
-    propiedades-auditoria-dlq: propiedades.auditoria.dlq
   admin:
     # TTL de los mensajes en la DLQ (en ms); luego de eso expiran.
     dlq-ttl: 600000

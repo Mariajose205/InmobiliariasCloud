@@ -34,6 +34,35 @@ Lo que hace cada capa:
 - **`wishlist-service`**: favoritos, alertas por comuna y novedades; consume Kafka
   y comparte PostgreSQL con el servicio de propiedades.
 
+### 1.1 Mensajería: dos colas de trabajo y sus DLQ
+
+`inmobiliaria-service` declara el broker completo desde `RabbitMqConfig` y
+`RabbitProperties` (los nombres viven en `application.yml`, sección `rabbitmq`):
+
+| Exchange | Cola de trabajo | DLQ |
+|---|---|---|
+| `inmobiliaria.fanout` | `cola.correos.notificaciones` | `cola.correos.notificaciones.dlq` |
+| `inmobiliaria.direct` | `cola.pdf.procesamiento` | `cola.pdf.procesamiento.dlq` |
+
+Ambas colas de trabajo tienen `x-dead-letter-exchange = inmobiliaria.dlx`; si un
+consumidor rechaza el mensaje sin requeue, el DLX lo enruta a la DLQ con su
+`x-message-ttl` (10 minutos). No hay una tercera cola: la auditoría de
+crear/editar/eliminar se guarda **de forma síncrona** en PostgreSQL con
+`AuditoriaService` dentro de `PropiedadController`, así que `GET /api/auditoria`
+no depende de RabbitMQ.
+
+Para verificar en el broker solo deben aparecer esas cuatro colas (dos de trabajo
+y dos DLQ). Si quedó una cola vieja, se borra con:
+
+```bash
+sudo docker exec <contenedor-rabbitmq> rabbitmqctl delete_queue cola.propiedades.auditoria
+sudo docker exec <contenedor-rabbitmq> rabbitmqctl delete_queue cola.propiedades.auditoria.dlq
+```
+
+El exchange `inmobiliaria.topic` y sus bindings tampoco se usan: se pueden borrar
+desde la consola de administración (`15672`) o con
+`rabbitmqctl delete_exchange inmobiliaria.topic`.
+
 ---
 
 ## 2. CORS: configuración y por qué es segura
