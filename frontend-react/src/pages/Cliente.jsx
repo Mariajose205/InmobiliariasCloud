@@ -144,7 +144,9 @@ function Cliente() {
       );
     } catch (e) {
       if (e?.code === 'SESSION_EXPIRED') {
-        expirarSesion(e.message);
+        // Mensaje fijo: el detalle tecnico ("No hay una sesion...") solo
+        // confunde; lo importante es volver al formulario de ingreso.
+        expirarSesion('Tu sesión expiró. Vuelve a iniciar sesión.');
       } else {
         setError(e.message || 'No se pudieron cargar los datos del cliente.');
       }
@@ -176,6 +178,14 @@ function Cliente() {
     setCargando(true);
     try {
       const datos = await iniciarSesionCliente(email, password);
+      // Verifica que la sesion haya quedado realmente en sessionStorage: si
+      // el navegador la bloquea o el SDK no pudo guardar los tokens, es mejor
+      // avisarlo aca que entrar a un panel que va a fallar en cada llamada.
+      if (!haySesionCliente()) {
+        throw new Error(
+          'No se pudo guardar la sesión en este navegador. Revisá que no esté bloqueando el almacenamiento del sitio.'
+        );
+      }
       entrar(datos);
     } catch (err) {
       setError(err.message);
@@ -299,7 +309,7 @@ function Cliente() {
       setAviso(`Token renovado. Vence a las ${new Date(expira * 1000).toLocaleTimeString('es-CL')}.`);
     } catch (err) {
       if (err?.code === 'SESSION_EXPIRED') {
-        expirarSesion(err.message);
+        expirarSesion('Tu sesión expiró. Vuelve a iniciar sesión.');
         return;
       }
       setError(err.message);
@@ -313,7 +323,7 @@ function Cliente() {
       setFavoritos((lista) => lista.filter((f) => (f.propiedadId ?? f.id) !== propiedadId));
     } catch (err) {
       if (err?.code === 'SESSION_EXPIRED') {
-        expirarSesion(err.message);
+        expirarSesion('Tu sesión expiró. Vuelve a iniciar sesión.');
         return;
       }
       setError(err.message);
@@ -327,7 +337,7 @@ function Cliente() {
       setNovedades((lista) => lista.filter((n) => n.id !== resumenId));
     } catch (err) {
       if (err?.code === 'SESSION_EXPIRED') {
-        expirarSesion(err.message);
+        expirarSesion('Tu sesión expiró. Vuelve a iniciar sesión.');
         return;
       }
       setError(err.message);
