@@ -82,6 +82,19 @@ function Cliente() {
     setAviso('');
   };
 
+  // La sesion de Cognito ya no sirve (refresh revocado o vencido): se vuelve
+  // al formulario de ingreso en vez de dejar el panel con datos a medias.
+  const expirarSesion = (mensaje) => {
+    setSesion(null);
+    setPerfil(null);
+    setClaims(null);
+    setFavoritos([]);
+    setAlertas([]);
+    setNovedades([]);
+    setVista(VISTA_LOGIN);
+    setError(mensaje || 'Tu sesión expiró. Vuelve a iniciar sesión.');
+  };
+
   const formatearPrecio = (precio) => {
     const num = parseInt(String(precio ?? '').replace(/\./g, '')) || 0;
     return new Intl.NumberFormat('es-CL', {
@@ -130,7 +143,11 @@ function Cliente() {
           : []
       );
     } catch (e) {
-      setError(e.message || 'No se pudieron cargar los datos del cliente.');
+      if (e?.code === 'SESSION_EXPIRED') {
+        expirarSesion(e.message);
+      } else {
+        setError(e.message || 'No se pudieron cargar los datos del cliente.');
+      }
     } finally {
       setCargando(false);
     }
@@ -281,6 +298,10 @@ function Cliente() {
       setClaims(obtenerClaimsTokenCliente());
       setAviso(`Token renovado. Vence a las ${new Date(expira * 1000).toLocaleTimeString('es-CL')}.`);
     } catch (err) {
+      if (err?.code === 'SESSION_EXPIRED') {
+        expirarSesion(err.message);
+        return;
+      }
       setError(err.message);
     }
   };
@@ -291,6 +312,10 @@ function Cliente() {
       await eliminarFavoritoCliente(propiedadId);
       setFavoritos((lista) => lista.filter((f) => (f.propiedadId ?? f.id) !== propiedadId));
     } catch (err) {
+      if (err?.code === 'SESSION_EXPIRED') {
+        expirarSesion(err.message);
+        return;
+      }
       setError(err.message);
     }
   };
@@ -301,6 +326,10 @@ function Cliente() {
       await descartarNovedadCliente(resumenId);
       setNovedades((lista) => lista.filter((n) => n.id !== resumenId));
     } catch (err) {
+      if (err?.code === 'SESSION_EXPIRED') {
+        expirarSesion(err.message);
+        return;
+      }
       setError(err.message);
     }
   };

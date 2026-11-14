@@ -4,6 +4,7 @@ import {
   CognitoUserAttribute
 } from 'amazon-cognito-identity-js';
 import {
+  COGNITO_CLIENT_ID,
   COGNITO_CONFIGURADO,
   MENSAJE_SIN_CONFIGURAR,
   userPool
@@ -103,13 +104,42 @@ function limpiarDatosSesion() {
   sessionStorage.removeItem(KEY_SUB);
 }
 
+/**
+ * Borra los tokens que el SDK de Cognito guarda en sessionStorage:
+ * `CognitoIdentityServiceProvider.<clientId>.<usuario>.<tipo>` y la clave
+ * `LastAuthUser`. Se usa cuando la sesion ya no sirve (refresh revocado o
+ * vencido): si quedan, `getCurrentUser()` sigue devolviendo un usuario y cada
+ * llamada vuelve a intentar el refresh contra Cognito (el POST que responde
+ * 400 "Invalid Refresh Token").
+ */
+function limpiarTokensSdk() {
+  try {
+    const prefijo = `CognitoIdentityServiceProvider.${COGNITO_CLIENT_ID}.`;
+    Object.keys(sessionStorage)
+      .filter((clave) => clave.startsWith(prefijo))
+      .forEach((clave) => sessionStorage.removeItem(clave));
+  } catch (_) {
+    // sessionStorage puede no estar disponible (modo privado estricto).
+  }
+}
+
+/** Error con codigo propio para que la UI distinga "sesion caida" de un fallo de red. */
+function errorSesion(mensaje) {
+  const error = new Error(mensaje || 'Tu sesion expiro. Vuelve a iniciar sesion.');
+  error.code = 'SESSION_EXPIRED';
+  return error;
+}
+
 /** Devuelve la sesion guardada (solo para pintar la UI), o null. */
 export function obtenerSesionCliente() {
   if (!COGNITO_CONFIGURADO || !userPool) return null;
   const email = sessionStorage.getItem(KEY_EMAIL);
   if (!email) return null;
   if (!userPool.getCurrentUser()) {
+    // Quedaron restos de una sesion anterior (por ejemplo, tokens del SDK sin
+    // la clave LastAuthUser): se limpian para no reintentar un refresh muerto.
     limpiarDatosSesion();
+    limpiarTokensSdk();
     return null;
   }
   return {
@@ -127,9 +157,29 @@ export function haySesionCliente() {
 /** Claims utiles del access_token vigente (para mostrar en "Mi cuenta"). */
 export function obtenerClaimsTokenCliente() {
   const usuario = userPool?.getCurrentUser();
-  const sesion = usuario?.getSignInUserSession();
-  if (!sesion) return null;
-  const claims = sesion.getAccessToken().decodePayload();
+  if (!usuario) return null;
+
+  // getCurrentUser() devuelve un CognitoUser nuevo sin sesion en memoria, asi
+  // que getSignInUserSession() normalmente es null. El token se lee del mismo
+  // storage que usa el SDK.
+  let token = null;
+  try {
+    token = usuario.getSignInUserSession()?.getAccessToken()?.getJwtToken() || null;
+  } catch (_) {
+    token = null;
+  }
+  if (!token) {
+    try {
+      token = sessionStorage.getItem(
+        `CognitoIdentityServiceProvider.${COGNITO_CLIENT_ID}.${usuario.getUsername()}.accessToken`
+      );
+    } catch (_) {
+      token = null;
+    }
+  }
+  if (!token) return null;
+
+  const claims = decodificarJwt(token);
   return {
     iss: claims.iss,
     client_id: claims.client_id || claims.aud,
@@ -261,31 +311,55 @@ export function iniciarSesionCliente(email, password) {
  * refresh_token (T02) sin volver a pedir la contrasena.
  *
  * Se usa `usuario.getSession()`, NO `usuario.getSignInUserSession()`: el SDK
- * guarda los tokens en localStorage y `getCurrentUser()` devuelve un
+ * guarda los tokens en sessionStorage y `getCurrentUser()` devuelve un
  * `CognitoUser` NUEVO en cada llamada, sin sesion en memoria. `getSession()`
  * es el unico metodo que reconstruye la sesion desde el storage y, si el
  * access token vencio, dispara el refresh solo. Con `getSignInUserSession()`
  * la sesion parecia vencida en cada navegacion.
+ *
+ * Las llamadas concurrentes comparten la misma promesa: el panel del cliente
+ * pide perfil, favoritos, alertas y novedades a la vez, y sin esto cada una
+ * lanzaria su propio refresh contra Cognito.
  */
+let promesaSesion = null;
+
 function asegurarSesion(usuario) {
-  return new Promise((resolve, reject) => {
+  if (promesaSesion) return promesaSesion;
+
+  promesaSesion = new Promise((resolve, reject) => {
     usuario.getSession((err, sesion) => {
       if (err || !sesion || !sesion.isValid()) {
+        // El refresh token fue revocado o vencio: se borran los tokens del
+        // SDK para que no se repita el POST que responde 400 en cada intento.
+        try {
+          usuario.signOut(); // sin callback: solo limpia el storage, sin red
+        } catch (_) {
+          // El storage ya estaba limpio.
+        }
         limpiarDatosSesion();
-        reject(new Error('La sesion expiro. Vuelve a iniciar sesion.'));
+        limpiarTokensSdk();
+        reject(errorSesion());
         return;
       }
       guardarDatosSesion(usuario, sesion);
       resolve(sesion);
     });
+  }).finally(() => {
+    promesaSesion = null;
   });
+
+  return promesaSesion;
 }
 
 /** Renueva explicitamente el token (boton "Renovar token" de Mi cuenta). */
 export async function renovarTokenCliente() {
   exigirConfiguracion();
   const usuario = userPool.getCurrentUser();
-  if (!usuario) throw new Error('No hay una sesion de cliente activa.');
+  if (!usuario) {
+    limpiarDatosSesion();
+    limpiarTokensSdk();
+    throw errorSesion('No hay una sesion de cliente activa.');
+  }
 
   // No alcanza con asegurarSesion(): si el access token todavia es valido,
   // getSession() devuelve el mismo token. El boton debe forzar el refresh.
@@ -316,7 +390,9 @@ export async function obtenerAccessTokenCliente() {
   exigirConfiguracion();
   const usuario = userPool.getCurrentUser();
   if (!usuario) {
-    throw new Error('No hay una sesion de cliente activa.');
+    limpiarDatosSesion();
+    limpiarTokensSdk();
+    throw errorSesion('No hay una sesion de cliente activa.');
   }
   const sesion = await asegurarSesion(usuario);
   return sesion.getAccessToken().getJwtToken();
@@ -385,7 +461,10 @@ export function cerrarSesionCliente() {
   } catch (_) {
     usuario = null;
   }
-  if (!usuario) return Promise.resolve();
+  if (!usuario) {
+    limpiarTokensSdk();
+    return Promise.resolve();
+  }
 
   return new Promise((resolve) => {
     let resuelto = false;
@@ -399,6 +478,7 @@ export function cerrarSesionCliente() {
       } catch (_) {
         // El storage ya estaba limpio.
       }
+      limpiarTokensSdk();
       resolve();
     };
 
