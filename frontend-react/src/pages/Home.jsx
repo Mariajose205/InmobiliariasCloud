@@ -9,6 +9,8 @@ import Footer from '../components/Footer';
 import ImageModal from '../components/ImageModal';
 import WhatsAppButton from '../components/WhatsAppButton';
 import { haySesion } from '../msalConfig';
+import { haySesionCliente } from '../cognito/auth';
+import { obtenerFavoritosCliente } from '../api/apiCliente';
 import {
   obtenerPropiedadesPublicas,
   obtenerFavoritos,
@@ -109,12 +111,15 @@ function Home() {
   };
 
   const cargarIntereses = async () => {
-    if (!isLoggedIn) {
+    const esCliente = haySesionCliente();
+    if (!isLoggedIn && !esCliente) {
       setTotalGuardadas(0);
       return;
     }
     try {
-      const favoritosData = await obtenerFavoritos();
+      const favoritosData = esCliente
+        ? await obtenerFavoritosCliente()
+        : await obtenerFavoritos();
       const favoritos = Array.isArray(favoritosData)
         ? favoritosData
         : (favoritosData?.favoritos || []);

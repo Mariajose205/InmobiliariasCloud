@@ -2,6 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Row, Col, Button, Card, Badge } from 'react-bootstrap';
 import { useMsal } from '@azure/msal-react';
 import { haySesion } from '../msalConfig';
+import { haySesionCliente } from '../cognito/auth';
+import {
+  agregarFavoritoCliente,
+  eliminarFavoritoCliente,
+  obtenerFavoritosCliente
+} from '../api/apiCliente';
 import {
   obtenerFavoritos,
   agregarFavorito,
@@ -15,17 +21,26 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
   const [currentImages, setCurrentImages] = useState({});
   const [favoritosIds, setFavoritosIds] = useState(new Set());
 
+  // Hay dos identidades posibles:
+  //  - staff (ADMIN/CORREDOR) con Entra ID  -> /api/wishlist/favoritos
+  //  - cliente publico con Cognito          -> /api/cliente/favoritos
+  // Se resuelve en cada llamada porque el login del cliente puede ocurrir
+  // despues de montar el catalogo.
+  const usaApiCliente = () => haySesionCliente();
+
   // Carga inicial de favoritos cuando hay sesion. Silencia errores
   // para no romper el catalogo publico si el backend no esta disponible.
   // Las alertas por comuna son automaticas: el backend las crea al guardar
   // un favorito, asi que el catalogo no necesita seguir comunas manualmente.
   useEffect(() => {
     const cargarWishlist = async () => {
-      if (!isLoggedIn) {
+      if (!isLoggedIn && !usaApiCliente()) {
         return;
       }
       try {
-        const favoritosData = await obtenerFavoritos();
+        const favoritosData = usaApiCliente()
+          ? await obtenerFavoritosCliente()
+          : await obtenerFavoritos();
         const lista = Array.isArray(favoritosData)
           ? favoritosData
           : (favoritosData?.favoritos || []);
@@ -82,27 +97,37 @@ const PropertyCatalog = ({ propiedades, filtro, setFiltro, onImageClick }) => {
   };
 
   const toggleFavorito = async (p) => {
-    if (!isLoggedIn) {
-      alert("Inicia sesión para guardar favoritos");
+    const esCliente = usaApiCliente();
+    if (!esCliente && !isLoggedIn) {
+      alert('Inicia sesión para guardar favoritos');
       return;
     }
     const yaEsFavorito = favoritosIds.has(String(p.id));
     try {
       if (yaEsFavorito) {
-        await eliminarFavorito(p.id);
+        if (esCliente) {
+          await eliminarFavoritoCliente(p.id);
+        } else {
+          await eliminarFavorito(p.id);
+        }
         setFavoritosIds((prev) => {
           const siguiente = new Set(prev);
           siguiente.delete(String(p.id));
           return siguiente;
         });
       } else {
-        await agregarFavorito({
+        const datos = {
           propiedadId: p.id,
           titulo: p.titulo,
           precio: p.precio,
           tipoPrecio: p.tipoPrecio,
           ubicacion: p.ubicacion
-        });
+        };
+        if (esCliente) {
+          await agregarFavoritoCliente(datos);
+        } else {
+          await agregarFavorito(datos);
+        }
         setFavoritosIds((prev) => new Set(prev).add(String(p.id)));
         // El backend crea automaticamente la alerta de la comuna al guardar
         // el favorito: no se llama a seguirComuna desde aqui.

@@ -560,6 +560,7 @@ prestado. El permiso de invocación (`ClienteRolFunctionPermission`, con
 | `frontend-react/src/cognito/config.js` | Lee `VITE_COGNITO_*` y crea el `CognitoUserPool` |
 | `frontend-react/src/cognito/auth.js` | Registro, confirmación, login SRP, refresh, forgot-password, sesión en `localStorage` |
 | `frontend-react/src/api/apiCliente.js` | Llama a `/api/cliente/**` con `Authorization: Bearer <access_token>` |
+| `frontend-react/src/components/PropertyCatalog.jsx` | Botón "Guardar": usa `/api/cliente/favoritos` si hay sesión de cliente y `/api/wishlist/favoritos` si es staff |
 | `frontend-react/src/pages/Cliente.jsx` | Formularios y panel del cliente |
 | `frontend-react/.env.production` | `VITE_COGNITO_REGION`, `VITE_COGNITO_USER_POOL_ID`, `VITE_COGNITO_CLIENT_ID` |
 
