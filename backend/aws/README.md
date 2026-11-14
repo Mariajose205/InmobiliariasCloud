@@ -678,6 +678,7 @@ CORREDOR recibe 403 y sin token la respuesta es 401 del authorizer.
 | `InvalidParameterException: Missing required parameter USERNAME` en `admin-confirm-sign-up` | Se pasó el UUID como `--username` cuando el pool identifica por email | Pasar el correo en `--username`. |
 | La SPA dice que la sesión expiró al cambiar de página | Se leyó `getSignInUserSession()`, que es `null` en el `CognitoUser` nuevo que devuelve `getCurrentUser()` en cada navegación | Usar `usuario.getSession(callback)`: reconstruye la sesión desde `sessionStorage` y refresca solo si el access token venció. |
 | Tras cerrar sesión, un `POST` a `cognito-idp` responde `400` y la UI sigue pidiendo datos del cliente | El refresh token fue revocado, pero quedaron los tokens del SDK en `sessionStorage`; `getCurrentUser()` seguía devolviendo usuario y cada llamada reintentaba el refresh | `asegurarSesion()` y `cerrarSesionCliente()` limpian las claves `CognitoIdentityServiceProvider.<clientId>.*`; el error viaja con `code = SESSION_EXPIRED` y el panel vuelve al formulario de ingreso. |
+| El login responde `No se pudo guardar la sesión en este navegador`, o entra y vuelve al login | Los `CognitoUser` creados a mano no heredan `Storage` del pool: el SDK guarda los tokens en `localStorage` y `getCurrentUser()` los busca en `sessionStorage` | Crear los usuarios con `Storage: userPool.storage` (helper `crearUsuario` de `auth.js`). Al cargar `auth.js` se borran los tokens heredados de `localStorage`. |
 
 ---
 

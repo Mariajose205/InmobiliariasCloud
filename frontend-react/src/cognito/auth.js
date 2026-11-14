@@ -35,6 +35,24 @@ function exigirConfiguracion() {
   }
 }
 
+/**
+ * Crea un CognitoUser con el MISMO storage que el pool.
+ *
+ * Ojo: `new CognitoUser({ Username, Pool })` NO hereda `pool.storage`; el SDK
+ * usa el storage por defecto (localStorage). Con el pool configurado en
+ * sessionStorage, el login guardaba los tokens en localStorage y
+ * `userPool.getCurrentUser()` (que lee sessionStorage) no los encontraba:
+ * la sesion parecia iniciada pero desaparecia al instante. Por eso hay que
+ * pasar `Storage: userPool.storage` en cada instancia.
+ */
+function crearUsuario(email) {
+  return new CognitoUser({
+    Username: String(email).trim(),
+    Pool: userPool,
+    Storage: userPool.storage
+  });
+}
+
 /** Traduce los errores de Cognito a mensajes accionables en espanol. */
 function traducirError(err) {
   const codigo = err?.code || '';
@@ -115,13 +133,34 @@ function limpiarDatosSesion() {
 function limpiarTokensSdk() {
   try {
     const prefijo = `CognitoIdentityServiceProvider.${COGNITO_CLIENT_ID}.`;
-    Object.keys(sessionStorage)
-      .filter((clave) => clave.startsWith(prefijo))
-      .forEach((clave) => sessionStorage.removeItem(clave));
+    [window.sessionStorage, window.localStorage].forEach((storage) => {
+      Object.keys(storage)
+        .filter((clave) => clave.startsWith(prefijo))
+        .forEach((clave) => storage.removeItem(clave));
+    });
   } catch (_) {
-    // sessionStorage puede no estar disponible (modo privado estricto).
+    // El almacenamiento puede no estar disponible (modo privado estricto).
   }
 }
+
+/**
+ * Version anterior del login creaba los CognitoUser sin `Storage`, asi que
+ * los tokens quedaban en localStorage aunque el pool leyera sessionStorage.
+ * Al cargar el modulo se borran esos restos: ya no sirven y no queremos que
+ * queden tokens de sesiones viejas en el navegador.
+ */
+function limpiarTokensLocalesHeredados() {
+  try {
+    const prefijo = `CognitoIdentityServiceProvider.${COGNITO_CLIENT_ID}.`;
+    Object.keys(window.localStorage)
+      .filter((clave) => clave.startsWith(prefijo))
+      .forEach((clave) => window.localStorage.removeItem(clave));
+  } catch (_) {
+    // Sin localStorage no hay nada que migrar.
+  }
+}
+
+limpiarTokensLocalesHeredados();
 
 /** Error con codigo propio para que la UI distinga "sesion caida" de un fallo de red. */
 function errorSesion(mensaje) {
@@ -170,7 +209,7 @@ export function obtenerClaimsTokenCliente() {
   }
   if (!token) {
     try {
-      token = sessionStorage.getItem(
+      token = userPool?.storage?.getItem(
         `CognitoIdentityServiceProvider.${COGNITO_CLIENT_ID}.${usuario.getUsername()}.accessToken`
       );
     } catch (_) {
@@ -245,7 +284,7 @@ export function confirmarRegistroCliente(email, codigo) {
       return;
     }
 
-    const usuario = new CognitoUser({ Username: String(email).trim(), Pool: userPool });
+    const usuario = crearUsuario(email);
     usuario.confirmRegistration(String(codigo).trim(), true, (err) => {
       if (err) {
         reject(traducirError(err));
@@ -266,7 +305,7 @@ export function reenviarCodigoConfirmacion(email) {
       return;
     }
 
-    const usuario = new CognitoUser({ Username: String(email).trim(), Pool: userPool });
+    const usuario = crearUsuario(email);
     usuario.resendConfirmationCode((err, resultado) => {
       if (err) {
         reject(traducirError(err));
@@ -287,7 +326,7 @@ export function iniciarSesionCliente(email, password) {
       return;
     }
 
-    const usuario = new CognitoUser({ Username: String(email).trim(), Pool: userPool });
+    const usuario = crearUsuario(email);
     const detalles = new AuthenticationDetails({
       Username: String(email).trim(),
       Password: password
@@ -408,7 +447,7 @@ export function solicitarRecuperacionPassword(email) {
       return;
     }
 
-    const usuario = new CognitoUser({ Username: String(email).trim(), Pool: userPool });
+    const usuario = crearUsuario(email);
     usuario.forgotPassword({
       onSuccess: (resultado) => {
         resolve({
@@ -431,7 +470,7 @@ export function confirmarNuevaPassword(email, codigo, nuevaPassword) {
       return;
     }
 
-    const usuario = new CognitoUser({ Username: String(email).trim(), Pool: userPool });
+    const usuario = crearUsuario(email);
     usuario.confirmPassword(String(codigo).trim(), nuevaPassword, {
       onSuccess: () => resolve(true),
       onFailure: (err) => reject(traducirError(err))
