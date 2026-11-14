@@ -557,12 +557,19 @@ prestado. El permiso de invocación (`ClienteRolFunctionPermission`, con
 
 | Archivo | Rol |
 |---|---|
-| `frontend-react/src/cognito/config.js` | Lee `VITE_COGNITO_*` y crea el `CognitoUserPool` |
+| `frontend-react/src/cognito/config.js` | Lee `VITE_COGNITO_*` y crea el `CognitoUserPool` (tokens en `sessionStorage`) |
 | `frontend-react/src/cognito/auth.js` | Registro, confirmación, login SRP, refresh, forgot-password, sesión en `localStorage` |
 | `frontend-react/src/api/apiCliente.js` | Llama a `/api/cliente/**` con `Authorization: Bearer <access_token>` |
 | `frontend-react/src/components/PropertyCatalog.jsx` | Botón "Guardar": usa `/api/cliente/favoritos` si hay sesión de cliente y `/api/wishlist/favoritos` si es staff |
 | `frontend-react/src/pages/Cliente.jsx` | Formularios y panel del cliente |
 | `frontend-react/.env.production` | `VITE_COGNITO_REGION`, `VITE_COGNITO_USER_POOL_ID`, `VITE_COGNITO_CLIENT_ID` |
+
+> **Tokens en el navegador.** El SDK los guarda en `sessionStorage` (no en
+> `localStorage`): viven solo en esa pestaña y se borran al cerrarla. Al cerrar
+> sesión, `cerrarSesionCliente()` usa `signOut(callback)`, que llama al endpoint
+> **Revoke** con el refresh token (habilitado por `EnableTokenRevocation: true`)
+> y recién después limpia el storage; así un refresh token robado no sirve
+> durante los 30 días de vigencia.
 
 > El ID token **no** se usa para llamar a la API: el authorizer espera un
 > access token. Las rutas de `/api/cliente/**` exigen el scope

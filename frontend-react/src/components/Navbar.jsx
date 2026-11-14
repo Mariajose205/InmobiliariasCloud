@@ -18,7 +18,9 @@ const Navbar = () => {
 
   const handleLogout = async () => {
     if (cliente) {
-      cerrarSesionCliente();
+      // Espera la revocacion del refresh token (tope 2.5 s): si navegaramos
+      // de inmediato, el navegador cancelaria la peticion a Cognito.
+      await cerrarSesionCliente();
       window.location.href = '/';
       return;
     }

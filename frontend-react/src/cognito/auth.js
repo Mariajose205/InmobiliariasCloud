@@ -363,15 +363,54 @@ export function confirmarNuevaPassword(email, codigo, nuevaPassword) {
   });
 }
 
-/** Cierra la sesion de Cognito y borra los datos locales. */
+/**
+ * Cierra la sesion del cliente y, ademas de borrar los tokens locales,
+ * REVOCA el refresh token en Cognito.
+ *
+ * `CognitoUser.signOut(callback)` reconstruye la sesion desde el storage,
+ * llama al endpoint Revoke con el refresh token (por eso la plantilla tiene
+ * `EnableTokenRevocation: true`) y recien despues limpia los tokens. Sin la
+ * revocacion, un refresh token robado seguiria sirviendo 30 dias aunque el
+ * usuario hubiera cerrado sesion.
+ *
+ * Devuelve una promesa que se resuelve siempre (exito, error o timeout): el
+ * cierre de sesion local nunca debe quedar bloqueado por la red.
+ */
 export function cerrarSesionCliente() {
-  try {
-    const usuario = userPool?.getCurrentUser();
-    if (usuario) usuario.signOut();
-  } catch (_) {
-    // Si el almacenamiento ya estaba limpio, no hay nada que cerrar.
-  }
   limpiarDatosSesion();
+
+  let usuario = null;
+  try {
+    usuario = userPool?.getCurrentUser();
+  } catch (_) {
+    usuario = null;
+  }
+  if (!usuario) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    let resuelto = false;
+    const terminar = () => {
+      if (resuelto) return;
+      resuelto = true;
+      // signOut() sin callback limpia los tokens del storage aunque el
+      // Revoke haya fallado (token vencido, sin red, etc).
+      try {
+        usuario.signOut();
+      } catch (_) {
+        // El storage ya estaba limpio.
+      }
+      resolve();
+    };
+
+    try {
+      usuario.signOut(() => terminar());
+    } catch (_) {
+      terminar();
+      return;
+    }
+    // Tope de espera: si Cognito no responde, se cierra igual la sesion local.
+    setTimeout(terminar, 2500);
+  });
 }
 
 /** Payload del ultimo access_token, para diagnostico en la consola. */

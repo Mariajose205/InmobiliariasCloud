@@ -23,7 +23,12 @@ export const COGNITO_CONFIGURADO = Boolean(
 export const userPool = COGNITO_CONFIGURADO
   ? new CognitoUserPool({
       UserPoolId: USER_POOL_ID,
-      ClientId: CLIENT_ID
+      ClientId: CLIENT_ID,
+      // sessionStorage en vez del localStorage que usa el SDK por defecto:
+      // los tokens quedan solo en esta pestaña y desaparecen al cerrarla, y
+      // un script de otra pestaña (o un XSS en otro origen del mismo dominio)
+      // no los encuentra. Coincide con los datos de sesion de auth.js.
+      Storage: window.sessionStorage
     })
   : null;
 
