@@ -12,7 +12,8 @@ import {
 // Sesion del cliente publico (Amazon Cognito).
 //
 // Flujo implementado (T02 de la rubrica):
-//  - registro con email + contrasena y confirmacion por codigo de email,
+//  - registro con nombre, apellido, email y contrasena, con confirmacion por
+//    codigo de email,
 //  - login con SRP (la contrasena no viaja al servidor),
 //  - refresh del access_token usando el refresh_token,
 //  - forgot-password y confirmacion del nuevo password.
@@ -140,8 +141,8 @@ export function obtenerClaimsTokenCliente() {
   };
 }
 
-/** Registro de un cliente nuevo: email, contrasena y nombre. */
-export function registrarCliente(email, password, nombre) {
+/** Registro de un cliente nuevo: email, contrasena, nombre y apellido. */
+export function registrarCliente(email, password, nombre, apellido) {
   return new Promise((resolve, reject) => {
     try {
       exigirConfiguracion();
@@ -150,9 +151,25 @@ export function registrarCliente(email, password, nombre) {
       return;
     }
 
-    const atributos = nombre
-      ? [new CognitoUserAttribute({ Name: 'name', Value: nombre })]
-      : [];
+    // `name` es el atributo que el trigger PreTokenGeneration copia al claim
+    // `name`, y de ahi sale el header X-User-Name que el backend devuelve como
+    // `nombre` en GET /api/cliente/perfil. Se guarda completo para que el
+    // perfil muestre nombre y apellido juntos; ademas se persisten
+    // `given_name` y `family_name` por separado en el User Pool.
+    const nombreLimpio = String(nombre || '').trim();
+    const apellidoLimpio = String(apellido || '').trim();
+    const nombreCompleto = [nombreLimpio, apellidoLimpio].filter(Boolean).join(' ');
+
+    const atributos = [];
+    if (nombreCompleto) {
+      atributos.push(new CognitoUserAttribute({ Name: 'name', Value: nombreCompleto }));
+    }
+    if (nombreLimpio) {
+      atributos.push(new CognitoUserAttribute({ Name: 'given_name', Value: nombreLimpio }));
+    }
+    if (apellidoLimpio) {
+      atributos.push(new CognitoUserAttribute({ Name: 'family_name', Value: apellidoLimpio }));
+    }
 
     userPool.signUp(String(email).trim(), password, atributos, null, (err, resultado) => {
       if (err) {
@@ -242,30 +259,24 @@ export function iniciarSesionCliente(email, password) {
 /**
  * Devuelve una sesion valida. Si el access_token expiro, lo renueva con el
  * refresh_token (T02) sin volver a pedir la contrasena.
+ *
+ * Se usa `usuario.getSession()`, NO `usuario.getSignInUserSession()`: el SDK
+ * guarda los tokens en localStorage y `getCurrentUser()` devuelve un
+ * `CognitoUser` NUEVO en cada llamada, sin sesion en memoria. `getSession()`
+ * es el unico metodo que reconstruye la sesion desde el storage y, si el
+ * access token vencio, dispara el refresh solo. Con `getSignInUserSession()`
+ * la sesion parecia vencida en cada navegacion.
  */
 function asegurarSesion(usuario) {
   return new Promise((resolve, reject) => {
-    const sesionActual = usuario.getSignInUserSession();
-    if (sesionActual && sesionActual.isValid()) {
-      resolve(sesionActual);
-      return;
-    }
-
-    const refreshToken = sesionActual?.getRefreshToken();
-    if (!refreshToken) {
-      limpiarDatosSesion();
-      reject(new Error('La sesion expiro. Vuelve a iniciar sesion.'));
-      return;
-    }
-
-    usuario.refreshSession(refreshToken, (err, sesionRenovada) => {
-      if (err || !sesionRenovada) {
+    usuario.getSession((err, sesion) => {
+      if (err || !sesion || !sesion.isValid()) {
         limpiarDatosSesion();
-        reject(traducirError(err || {}));
+        reject(new Error('La sesion expiro. Vuelve a iniciar sesion.'));
         return;
       }
-      guardarDatosSesion(usuario, sesionRenovada);
-      resolve(sesionRenovada);
+      guardarDatosSesion(usuario, sesion);
+      resolve(sesion);
     });
   });
 }
@@ -275,10 +286,25 @@ export async function renovarTokenCliente() {
   exigirConfiguracion();
   const usuario = userPool.getCurrentUser();
   if (!usuario) throw new Error('No hay una sesion de cliente activa.');
-  const sesion = await asegurarSesion(usuario);
+
+  // No alcanza con asegurarSesion(): si el access token todavia es valido,
+  // getSession() devuelve el mismo token. El boton debe forzar el refresh.
+  const nueva = await new Promise((resolve, reject) => {
+    asegurarSesion(usuario).then((sesion) => {
+      usuario.refreshSession(sesion.getRefreshToken(), (err, renovada) => {
+        if (err || !renovada) {
+          reject(traducirError(err || {}));
+          return;
+        }
+        guardarDatosSesion(usuario, renovada);
+        resolve(renovada);
+      });
+    }, reject);
+  });
+
   return {
-    accessToken: sesion.getAccessToken().getJwtToken(),
-    expira: sesion.getAccessToken().getExpiration()
+    accessToken: nueva.getAccessToken().getJwtToken(),
+    expira: nueva.getAccessToken().getExpiration()
   };
 }
 

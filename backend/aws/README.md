@@ -381,11 +381,11 @@ Sin *hosted UI*: el registro y el login son pantallas propias de la SPA
 
 | Flujo | Llamada de Cognito | Dónde está |
 |---|---|---|
-| Registro con email | `SignUp` → envía código de 6 dígitos | `registrar()` en `src/cognito/auth.js` |
-| Confirmación | `ConfirmSignUp` con el código | `confirmar()` |
-| Login | `InitiateAuth` (`USER_SRP_AUTH`) | `iniciarSesion()` |
-| Refresh | `InitiateAuth` (`REFRESH_TOKEN_AUTH`) | `refrescarSesion()` |
-| Recuperar contraseña | `ForgotPassword` + `ConfirmForgotPassword` | `recuperarPassword()` / `cambiarPassword()` |
+| Registro con nombre, apellido y email | `SignUp` → envía código de 6 dígitos y guarda `name`, `given_name`, `family_name` | `registrarCliente()` en `src/cognito/auth.js` |
+| Confirmación | `ConfirmSignUp` con el código | `confirmarRegistroCliente()` |
+| Login | `InitiateAuth` (`USER_SRP_AUTH`) | `iniciarSesionCliente()` |
+| Refresh | `InitiateAuth` (`REFRESH_TOKEN_AUTH`) | `renovarTokenCliente()` (`ensureSesion` interno) |
+| Recuperar contraseña | `ForgotPassword` + `ConfirmForgotPassword` | `solicitarRecuperacionPassword()` / `confirmarNuevaPassword()` |
 
 Configuración del app client en la plantilla:
 
@@ -592,6 +592,7 @@ prestado. El permiso de invocación (`ClienteRolFunctionPermission`, con
 | `Essentials is not a valid enum value` al crear el change set | El enum del `UserPoolTier` es sensible a mayúsculas | `UserPoolTier: ESSENTIALS`. El detalle de la validación se ve con `aws cloudformation describe-events --stack-name <stack> --change-set-name <cs> --filters FailedEvents=true`. |
 | `AlreadyExists` / `NotAuthorizedException` en `sign-up` | El correo ya está registrado o se usó `admin-create-user` | Usar un correo nuevo (`cliente.demo.<epoch>@example.com`). Con `UsernameAttributes: email`, el *username* interno es un UUID: los comandos admin necesitan ese UUID o el correo, no el nombre. |
 | `InvalidParameterException: Missing required parameter USERNAME` en `admin-confirm-sign-up` | Se pasó el UUID como `--username` cuando el pool identifica por email | Pasar el correo en `--username`. |
+| La SPA dice `"La sesion expiro. Vuelve a iniciar sesion."` al cambiar de página | Se leyó `getSignInUserSession()`, que es `null` en el `CognitoUser` nuevo que devuelve `getCurrentUser()` en cada navegación | Usar `usuario.getSession(callback)`: reconstruye la sesión desde `localStorage` y refresca solo si el access token venció. |
 
 ---
 

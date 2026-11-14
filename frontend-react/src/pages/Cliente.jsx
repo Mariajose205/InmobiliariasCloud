@@ -59,6 +59,7 @@ function Cliente() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nombre, setNombre] = useState('');
+  const [apellido, setApellido] = useState('');
   const [codigo, setCodigo] = useState('');
   const [nuevaPassword, setNuevaPassword] = useState('');
   const [confirmacionPassword, setConfirmacionPassword] = useState('');
@@ -169,13 +170,17 @@ function Cliente() {
   const handleRegistro = async (e) => {
     e.preventDefault();
     limpiarMensajes();
+    if (!nombre.trim() || !apellido.trim()) {
+      setError('Ingresa tu nombre y tu apellido.');
+      return;
+    }
     if (password !== confirmacionPassword) {
       setError('Las contrasenas no coinciden.');
       return;
     }
     setCargando(true);
     try {
-      const resultado = await registrarCliente(email, password, nombre);
+      const resultado = await registrarCliente(email, password, nombre, apellido);
       setVista(VISTA_CONFIRMAR);
       setAviso(
         resultado.confirmado
@@ -395,15 +400,32 @@ function Cliente() {
 
               {vista === VISTA_REGISTRO && (
                 <Form onSubmit={handleRegistro}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Nombre</Form.Label>
-                    <Form.Control
-                      value={nombre}
-                      onChange={(e) => setNombre(e.target.value)}
-                      placeholder="Nombre y apellido"
-                      autoComplete="name"
-                    />
-                  </Form.Group>
+                  <Row className="g-3 mb-3">
+                    <Col sm={6}>
+                      <Form.Group>
+                        <Form.Label>Nombre</Form.Label>
+                        <Form.Control
+                          required
+                          value={nombre}
+                          onChange={(e) => setNombre(e.target.value)}
+                          placeholder="Maria"
+                          autoComplete="given-name"
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col sm={6}>
+                      <Form.Group>
+                        <Form.Label>Apellido</Form.Label>
+                        <Form.Control
+                          required
+                          value={apellido}
+                          onChange={(e) => setApellido(e.target.value)}
+                          placeholder="Perez"
+                          autoComplete="family-name"
+                        />
+                      </Form.Group>
+                    </Col>
+                  </Row>
                   <Form.Group className="mb-3">
                     <Form.Label>Correo electronico</Form.Label>
                     <Form.Control
@@ -656,27 +678,14 @@ function Cliente() {
                   <h5 className="fw-bold mb-3">Datos de la cuenta</h5>
                   <Row className="g-3">
                     <Col md={6}>
-                      <div className="text-muted small">Nombre</div>
+                      <div className="text-muted small">Nombre completo</div>
                       <div className="fw-semibold">{perfil?.nombre || '(sin nombre)'}</div>
                     </Col>
                     <Col md={6}>
                       <div className="text-muted small">Correo</div>
                       <div className="fw-semibold">{perfil?.email || sesion.email}</div>
                     </Col>
-                    <Col md={6}>
-                      <div className="text-muted small">Identificador (sub de Cognito)</div>
-                      <div className="fw-semibold text-break">{perfil?.oid || sesion.sub}</div>
-                    </Col>
-                    <Col md={6}>
-                      <div className="text-muted small">Rol exigido por el backend</div>
-                      <div className="fw-semibold">{rolCliente}</div>
-                    </Col>
                   </Row>
-                  <Alert variant="info" className="mt-4 mb-0">
-                    Estas rutas son <strong>/api/cliente/**</strong> y exigen un access token de
-                    Cognito. El mismo token no sirve para <code>/api/admin/**</code>: el backend
-                    responde 403 a un cliente aunque el token sea valido.
-                  </Alert>
                 </Card.Body>
               </Card>
             )}
