@@ -433,9 +433,9 @@ llegara, el interceptor responde 403 porque su rol no alcanza.
 Cada ruta de `/api/cliente/**` declara además `AuthorizationScopes` con
 `aws.cognito.signin.user.admin`. Ese `scope` viaja **solo** en el access token
 (claim `scope`), así que un ID token de Cognito —que comparte issuer y
-`aud`/`client_id` con el access token— recibe 401. Sin esa línea el
-authorizer los aceptaría a los dos, porque no hay nada en el JWT que indique
-`token_use` de forma estándar.
+`aud`/`client_id` con el access token— recibe **403** (token válido pero sin el
+scope exigido). Sin esa línea el authorizer los aceptaría a los dos, porque no
+hay nada en el JWT que indique `token_use` de forma estándar.
 
 ### 7.4 Mapeo de cabeceras: `$context.authorizer.claims.*`
 
@@ -518,7 +518,15 @@ curl -s -o /dev/null -w "%{http_code}\n" "$API/api/cliente/perfil"  # 401
 # T05 - el token de cliente NO sirve para el staff
 curl -s -o /dev/null -w "%{http_code}\n" \
   -H "Authorization: Bearer $ACCESS" "$API/api/admin/kafka/topicos" # 401
+
+# T05 - el ID token tampoco sirve: no trae el scope del access token
+IDT=$(echo "$AUTH" | jq -r .IdToken)
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -H "Authorization: Bearer $IDT" "$API/api/cliente/perfil"       # 403
 ```
+
+> Códigos distintos a propósito: **401** es "token ausente, vencido o de otro
+> emisor"; **403** es "token válido pero sin el scope que exige la ruta".
 
 Respuesta esperada de `GET /api/cliente/perfil`:
 
@@ -559,7 +567,7 @@ prestado. El permiso de invocación (`ClienteRolFunctionPermission`, con
 > access token. Las rutas de `/api/cliente/**` exigen el scope
 > `aws.cognito.signin.user.admin`, que solo aparece en el claim `scope` del
 > access token; un ID token (aunque comparte issuer y `aud`) no lo trae y
-> recibe **401**.
+> recibe **403**.
 
 ---
 
