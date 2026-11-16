@@ -95,6 +95,17 @@ export function descartarNovedadCliente(resumenId) {
   });
 }
 
+/** Avisos de propiedades eliminadas por un admin o corredor. */
+export function obtenerAvisosCliente() {
+  return apiFetchCliente('/api/cliente/avisos');
+}
+
+export function descartarAvisoCliente(avisoId) {
+  return apiFetchCliente(`/api/cliente/avisos/${avisoId}`, {
+    method: 'DELETE'
+  });
+}
+
 /** Normaliza las respuestas del backend (lista o envoltorio con clave). */
 export function comoLista(data, clave) {
   if (Array.isArray(data)) return data;

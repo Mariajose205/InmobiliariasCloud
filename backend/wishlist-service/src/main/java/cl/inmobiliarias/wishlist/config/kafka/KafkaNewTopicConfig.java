@@ -33,6 +33,15 @@ public class KafkaNewTopicConfig {
     }
 
     @Bean
+    public NewTopic propiedadesEliminadasTopic() {
+        return new NewTopic(
+                properties.getTopics().getPropiedadesEliminadas(),
+                3,
+                (short) 1)
+                .configs(java.util.Map.of("retention.ms", RETENTION_MS, "cleanup.policy", "delete"));
+    }
+
+    @Bean
     public NewTopic notificacionesSistemaTopic() {
         return new NewTopic(
                 properties.getTopics().getNotificacionesSistema(),
@@ -45,6 +54,17 @@ public class KafkaNewTopicConfig {
     public NewTopic propiedadesNuevasDlqTopic() {
         return new NewTopic(
                 properties.getTopics().getPropiedadesNuevasDlq(),
+                3,
+                (short) 1)
+                .configs(java.util.Map.of("retention.ms", RETENTION_MS, "cleanup.policy", "delete"));
+    }
+
+    @Bean
+    public NewTopic propiedadesEliminadasDlqTopic() {
+        // Mismas particiones que propiedades-eliminadas: el recoverer conserva
+        // el numero de particion del mensaje original al moverlo a la DLQ.
+        return new NewTopic(
+                properties.getTopics().getPropiedadesEliminadasDlq(),
                 3,
                 (short) 1)
                 .configs(java.util.Map.of("retention.ms", RETENTION_MS, "cleanup.policy", "delete"));

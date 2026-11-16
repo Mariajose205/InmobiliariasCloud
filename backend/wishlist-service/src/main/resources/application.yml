@@ -56,8 +56,7 @@ spring:
         spring.json.value.default.type: cl.inmobiliarias.wishlist.dto.PropiedadCreadaEvent
         # inmobiliaria-service publica su propio DTO (mismo JSON, otro paquete).
         # Este mapeo traduce el tipo del header al DTO local de wishlist.
-        spring.json.type.mapping: >-
-          cl.inmobiliarias.service.dto.PropiedadCreadaEvent:cl.inmobiliarias.wishlist.dto.PropiedadCreadaEvent
+        spring.json.type.mapping: "cl.inmobiliarias.service.dto.PropiedadCreadaEvent:cl.inmobiliarias.wishlist.dto.PropiedadCreadaEvent,cl.inmobiliarias.service.dto.PropiedadEliminadaEvent:cl.inmobiliarias.wishlist.dto.PropiedadEliminadaEvent"
     admin:
       # Los topicos (particiones/retencion/cleanup) se declaran en
       # KafkaNewTopicConfig. El admin los crea al arrancar el servicio.
@@ -93,8 +92,10 @@ app.notificaciones:
 app.kafka:
   topics:
     propiedades-nuevas: propiedades-nuevas
+    propiedades-eliminadas: propiedades-eliminadas
     notificaciones-sistema: notificaciones-sistema
     propiedades-nuevas-dlq: propiedades-nuevas.dlq
+    propiedades-eliminadas-dlq: propiedades-eliminadas.dlq
     notificaciones-sistema-dlq: notificaciones-sistema.dlq
 
 seguridad:

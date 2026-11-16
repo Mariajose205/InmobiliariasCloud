@@ -33,7 +33,8 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZE
  * Se usa ACK manual (los consumidores confirman solo cuando terminan de
  * procesar) y un DefaultErrorHandler con reintentos que, al agotar los
  * intentos, publica el mensaje en la DLQ correspondiente segun el topic
- * de origen (propiedades-nuevas.dlq o notificaciones-sistema.dlq).
+ * de origen (propiedades-nuevas.dlq, propiedades-eliminadas.dlq o
+ * notificaciones-sistema.dlq).
  */
 @Configuration
 public class KafkaConsumerConfig {
@@ -72,13 +73,16 @@ public class KafkaConsumerConfig {
         // novedad/alerta. El mapeo traduce el tipo del productor al DTO local.
         props.put(JsonDeserializer.TYPE_MAPPINGS,
                 "cl.inmobiliarias.service.dto.PropiedadCreadaEvent:"
-                        + "cl.inmobiliarias.wishlist.dto.PropiedadCreadaEvent");
+                        + "cl.inmobiliarias.wishlist.dto.PropiedadCreadaEvent,"
+                        + "cl.inmobiliarias.service.dto.PropiedadEliminadaEvent:"
+                        + "cl.inmobiliarias.wishlist.dto.PropiedadEliminadaEvent");
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
     /**
      * Recoverer que manda el mensaje fallido a la DLQ correcta segun el
-     * topic de origen: propiedades-nuevas -> propiedades-nuevas.dlq y
+     * topic de origen: propiedades-nuevas -> propiedades-nuevas.dlq,
+     * propiedades-eliminadas -> propiedades-eliminadas.dlq y
      * notificaciones-sistema -> notificaciones-sistema.dlq.
      */
     @Bean
@@ -88,6 +92,8 @@ public class KafkaConsumerConfig {
             String dlq;
             if (origen != null && origen.equals(properties.getTopics().getPropiedadesNuevas())) {
                 dlq = properties.getTopics().getPropiedadesNuevasDlq();
+            } else if (origen != null && origen.equals(properties.getTopics().getPropiedadesEliminadas())) {
+                dlq = properties.getTopics().getPropiedadesEliminadasDlq();
             } else if (origen != null && origen.equals(properties.getTopics().getNotificacionesSistema())) {
                 dlq = properties.getTopics().getNotificacionesSistemaDlq();
             } else {

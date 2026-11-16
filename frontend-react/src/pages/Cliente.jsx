@@ -28,9 +28,11 @@ import {
 } from '../cognito/auth';
 import {
   comoLista,
+  descartarAvisoCliente,
   descartarNovedadCliente,
   eliminarFavoritoCliente,
   obtenerAlertasCliente,
+  obtenerAvisosCliente,
   obtenerFavoritosCliente,
   obtenerNovedadesCliente,
   obtenerPerfilCliente,
@@ -71,6 +73,7 @@ function Cliente() {
   const [seccion, setSeccion] = useState('perfil');
   const [perfil, setPerfil] = useState(null);
   const [favoritos, setFavoritos] = useState([]);
+  const [avisos, setAvisos] = useState([]);
   const [alertas, setAlertas] = useState([]);
   const [novedades, setNovedades] = useState([]);
   const [catalogo, setCatalogo] = useState([]);
@@ -85,8 +88,8 @@ function Cliente() {
   const expirarSesion = (mensaje) => {
     setSesion(null);
     setPerfil(null);
-    setClaims(null);
     setFavoritos([]);
+    setAvisos([]);
     setAlertas([]);
     setNovedades([]);
     setVista(VISTA_LOGIN);
@@ -106,10 +109,11 @@ function Cliente() {
     setCargando(true);
     setError('');
     try {
-      const [perfilData, favoritosData, alertasData, novedadesData, catalogoData] =
+      const [perfilData, favoritosData, avisosData, alertasData, novedadesData, catalogoData] =
         await Promise.allSettled([
           obtenerPerfilCliente(),
           obtenerFavoritosCliente(),
+          obtenerAvisosCliente(),
           obtenerAlertasCliente(),
           obtenerNovedadesCliente(),
           obtenerPropiedadesPublicas()
@@ -123,6 +127,9 @@ function Cliente() {
 
       setFavoritos(
         favoritosData.status === 'fulfilled' ? comoLista(favoritosData.value, 'favoritos') : []
+      );
+      setAvisos(
+        avisosData.status === 'fulfilled' ? comoLista(avisosData.value, 'avisos') : []
       );
       setAlertas(
         alertasData.status === 'fulfilled'
@@ -157,6 +164,33 @@ function Cliente() {
       cargarDatosCliente();
     }
   }, [sesion, cargarDatosCliente]);
+
+  /**
+   * Sondeo silencioso: si el admin o un corredor elimina una propiedad
+   * mientras el cliente tiene la pagina abierta, en <=15s desaparece de sus
+   * favoritos y aparece el aviso ("ya fue vendida o arrendada"). No muestra
+   * spinner ni rompe la pagina si falla.
+   */
+  const refrescarAvisosYFavoritos = useCallback(async () => {
+    try {
+      const [avisosData, favoritosData] = await Promise.all([
+        obtenerAvisosCliente(),
+        obtenerFavoritosCliente()
+      ]);
+      setAvisos(comoLista(avisosData, 'avisos'));
+      setFavoritos(comoLista(favoritosData, 'favoritos'));
+    } catch (_) {
+      // Silencioso: el sondeo no debe interrumpir la navegacion.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!sesion) {
+      return undefined;
+    }
+    const intervalo = setInterval(refrescarAvisosYFavoritos, 15000);
+    return () => clearInterval(intervalo);
+  }, [sesion, refrescarAvisosYFavoritos]);
 
   const entrar = (datos) => {
     setSesion(datos);
@@ -288,8 +322,8 @@ function Cliente() {
     cerrarSesionCliente();
     setSesion(null);
     setPerfil(null);
-    setClaims(null);
     setFavoritos([]);
+    setAvisos([]);
     setAlertas([]);
     setNovedades([]);
     setVista(VISTA_LOGIN);
@@ -303,6 +337,26 @@ function Cliente() {
     try {
       const { expira } = await renovarTokenCliente();
       setAviso(`Token renovado. Vence a las ${new Date(expira * 1000).toLocaleTimeString('es-CL')}.`);
+    } catch (err) {
+      if (err?.code === 'SESSION_EXPIRED') {
+        expirarSesion('Tu sesión expiró. Vuelve a iniciar sesión.');
+        return;
+      }
+      setError(err.message);
+    }
+  };
+
+  const handleDescartarAviso = async (avisoId, propiedadId) => {
+    try {
+      await descartarAvisoCliente(avisoId);
+      setAvisos((lista) => lista.filter((a) => a.id !== avisoId));
+      // El backend ya borro el favorito; por si la lista quedo cacheada en la
+      // pestana, se quita tambien en memoria.
+      if (propiedadId != null) {
+        setFavoritos((lista) =>
+          lista.filter((f) => (f.propiedadId ?? f.id) !== propiedadId)
+        );
+      }
     } catch (err) {
       if (err?.code === 'SESSION_EXPIRED') {
         expirarSesion('Tu sesión expiró. Vuelve a iniciar sesión.');
@@ -658,6 +712,28 @@ function Cliente() {
             {error || aviso}
           </Alert>
         )}
+
+        {/* Avisos de propiedades que el admin/corredor elimino: el favorito ya
+            no aparece en la lista y aqui queda el mensaje para el cliente. */}
+        {avisos.map((aviso) => (
+          <Alert
+            key={aviso.id}
+            variant="warning"
+            className="d-flex flex-wrap justify-content-between align-items-center gap-3 shadow-sm"
+          >
+            <div>
+              <i className="bi bi-exclamation-triangle-fill me-2"></i>
+              {aviso.mensaje}
+            </div>
+            <Button
+              variant="outline-dark"
+              size="sm"
+              onClick={() => handleDescartarAviso(aviso.id, aviso.propiedadId)}
+            >
+              Entendido
+            </Button>
+          </Alert>
+        ))}
 
         <div className="d-flex justify-content-center mb-4">
           <ButtonGroup>

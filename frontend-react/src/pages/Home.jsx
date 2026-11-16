@@ -10,7 +10,11 @@ import ImageModal from '../components/ImageModal';
 import WhatsAppButton from '../components/WhatsAppButton';
 import { haySesion } from '../msalConfig';
 import { haySesionCliente } from '../cognito/auth';
-import { obtenerFavoritosCliente } from '../api/apiCliente';
+import {
+  descartarAvisoCliente,
+  obtenerAvisosCliente,
+  obtenerFavoritosCliente
+} from '../api/apiCliente';
 import {
   obtenerPropiedadesPublicas,
   obtenerFavoritos,
@@ -45,6 +49,10 @@ function Home() {
     }, 300);
     return () => clearTimeout(timer);
   }, [location.hash]);
+
+  // Avisos de propiedades eliminadas (solo clientes de Cognito). Se muestran
+  // como alerta en la pagina principal y el cliente puede descartarlos.
+  const [avisos, setAvisos] = useState([]);
 
   // Contador de favoritos.
   const [totalGuardadas, setTotalGuardadas] = useState(0);
@@ -127,6 +135,30 @@ function Home() {
     } catch (_) {
       // Silencioso: sin favoritos no se muestra el contador.
       setTotalGuardadas(0);
+    }
+  };
+
+  // Avisos de propiedades eliminadas por el admin o un corredor. Solo aplica
+  // a clientes de Cognito (el staff no tiene favoritos propios).
+  const cargarAvisosCliente = async () => {
+    if (!haySesionCliente()) {
+      setAvisos([]);
+      return;
+    }
+    try {
+      const datos = await obtenerAvisosCliente();
+      setAvisos(Array.isArray(datos) ? datos : (datos?.avisos || []));
+    } catch (_) {
+      // Silencioso: el aviso no debe romper la pagina principal.
+    }
+  };
+
+  const descartarAviso = async (aviso) => {
+    setAvisos((prev) => prev.filter((a) => a.id !== aviso.id));
+    try {
+      await descartarAvisoCliente(aviso.id);
+    } catch (_) {
+      // Si falla, reaparece en el proximo sondeo.
     }
   };
 
@@ -219,6 +251,20 @@ function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn]);
 
+  // Avisos de propiedades eliminadas: carga al entrar y sondeo cada 15s para
+  // que el cliente se entere aunque no recargue la pagina.
+  useEffect(() => {
+    cargarAvisosCliente();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!haySesionCliente()) return undefined;
+    const intervalo = setInterval(cargarAvisosCliente, 15000);
+    return () => clearInterval(intervalo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]);
+
   // Cuando cambia el login, limpia resumenes viejos
   useEffect(() => {
     if (!isLoggedIn) {
@@ -288,6 +334,18 @@ function Home() {
       <HeroSection />
 
       <Container className="mb-3">
+        {avisos.map((aviso) => (
+          <Alert
+            key={aviso.id}
+            variant="warning"
+            dismissible
+            className="alert-novedad"
+            onClose={() => descartarAviso(aviso)}
+          >
+            <i className="bi bi-exclamation-triangle-fill me-2"></i>
+            {aviso.mensaje}
+          </Alert>
+        ))}
         {resumenes.length > 0 && (
           <Alert variant="success" className="alert-novedad mb-2">
             <i className="bi bi-bell-fill me-2"></i>

@@ -1176,6 +1176,31 @@ Resources:
       AuthorizationScopes:
         - aws.cognito.signin.user.admin
 
+  # Avisos de propiedades eliminadas: cuando un admin o corredor borra una
+  # propiedad, el cliente la ve fuera de sus favoritos y con un mensaje
+  # ("ya fue vendida o arrendada"). GET lista y DELETE descarta el aviso.
+  RutaClienteAvisosGet:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: GET /api/cliente/avisos
+      Target: !Sub 'integrations/${ClienteGetIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref ClienteCognitoAuthorizer
+      AuthorizationScopes:
+        - aws.cognito.signin.user.admin
+
+  RutaClienteAvisoDelete:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref InmobiliariaApi
+      RouteKey: DELETE /api/cliente/avisos/{id}
+      Target: !Sub 'integrations/${ClienteDeleteIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref ClienteCognitoAuthorizer
+      AuthorizationScopes:
+        - aws.cognito.signin.user.admin
+
   # -------------------------------------------------------------------------
   # Stage en $default: la URL publica no lleva segmento de stage, que queda
   # https://{apiId}.execute-api.{region}.amazonaws.com/api/propiedades

@@ -380,7 +380,7 @@ Navegador ──/api/** (staff)──> authorizer Entra ID ─┘
 | Issuer | `https://cognito-idp.us-east-1.amazonaws.com/us-east-1_VOjUlX3N7` |
 | Plan del pool | `ESSENTIALS` |
 | Authorizer | `ClienteCognitoAuthorizer` (JWT; `Issuer` + `Audience` = app client) |
-| Rutas protegidas | las 9 rutas de `/api/cliente/**` |
+| Rutas protegidas | las 11 rutas de `/api/cliente/**` |
 | Salidas del stack | `ClienteUserPoolId`, `ClienteUserPoolClientId`, `ClienteCognitoIssuer` |
 
 El authorizer valida **issuer y audience**, no solo la firma: un token de otro
@@ -605,6 +605,47 @@ prestado. El permiso de invocación (`ClienteRolFunctionPermission`, con
 > `aws.cognito.signin.user.admin`, que solo aparece en el claim `scope` del
 > access token; un ID token (aunque comparte issuer y `aud`) no lo trae y
 > recibe **403**.
+
+### 7.8 Avisos cuando el admin o un corredor elimina una propiedad
+
+El cliente tiene que enterarse de que una propiedad de sus favoritos ya no
+existe, y el favorito debe desaparecer solo. El flujo es asíncrono:
+
+```
+DELETE /api/propiedades/{id}  (ADMIN o CORREDOR)
+        │
+        └─ inmobiliaria-service publica PropiedadEliminadaEvent
+           en el topic Kafka `propiedades-eliminadas`
+                    │
+                    ▼
+        wishlist-service (grupo wishlist-bajas-group)
+        ├─ borra el favorito de TODOS los usuarios que la tenían
+        ├─ crea una fila en `wishlist_avisos` por usuario
+        └─ si el consumidor falla, reintenta y al agotar va a
+           `propiedades-eliminadas.dlq`
+```
+
+El texto se arma con `tipoOperacion` de la propiedad:
+
+- `Venta` → *La propiedad "X" ya fue vendida y se eliminó automáticamente de tus favoritos.*
+- `Arriendo` → *La propiedad "X" ya fue arrendada y se eliminó automáticamente de tus favoritos.*
+- otro valor → *ya fue vendida o arrendada…*
+
+El frontend lo muestra como una alerta destacada en la página principal
+(`Home.jsx`) y en el panel del cliente (`Cliente.jsx`). Ambas pantallas sondean
+cada 15 s, así que si el admin borra la propiedad mientras el cliente tiene la
+página abierta, el favorito desaparece y el aviso aparece sin recargar.
+
+Rutas nuevas (Cognito + scope `aws.cognito.signin.user.admin`):
+
+| Método | Ruta | Uso |
+|---|---|---|
+| `GET` | `/api/cliente/avisos` | Lista los avisos del cliente autenticado |
+| `DELETE` | `/api/cliente/avisos/{id}` | El cliente descarta el aviso |
+
+En Kafka UI se ven los topics `propiedades-eliminadas` y
+`propiedades-eliminadas.dlq`; ambos los declara `KafkaNewTopicConfig` al
+arrancar el wishlist-service.
 
 ---
 

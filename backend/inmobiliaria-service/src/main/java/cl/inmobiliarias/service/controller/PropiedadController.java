@@ -4,6 +4,7 @@ import cl.inmobiliarias.service.model.Propiedad;
 import cl.inmobiliarias.service.security.IdentidadInterceptor;
 import cl.inmobiliarias.service.service.AuditoriaService;
 import cl.inmobiliarias.service.service.PropiedadService;
+import cl.inmobiliarias.service.service.messaging.PropiedadEliminadaPublisher;
 import cl.inmobiliarias.service.service.messaging.PropiedadNuevaPublisher;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -39,12 +40,15 @@ public class PropiedadController {
     private final PropiedadService service;
     private final AuditoriaService auditoriaService;
     private final PropiedadNuevaPublisher propiedadNuevaPublisher;
+    private final PropiedadEliminadaPublisher propiedadEliminadaPublisher;
 
     public PropiedadController(PropiedadService service, AuditoriaService auditoriaService,
-                               PropiedadNuevaPublisher propiedadNuevaPublisher) {
+                               PropiedadNuevaPublisher propiedadNuevaPublisher,
+                               PropiedadEliminadaPublisher propiedadEliminadaPublisher) {
         this.service = service;
         this.auditoriaService = auditoriaService;
         this.propiedadNuevaPublisher = propiedadNuevaPublisher;
+        this.propiedadEliminadaPublisher = propiedadEliminadaPublisher;
     }
 
     @GetMapping
@@ -102,6 +106,15 @@ public class PropiedadController {
             @RequestAttribute(value = IdentidadInterceptor.ATTR_ROL, required = false) String rol) {
         Propiedad propiedad = service.obtener(id);
         auditoriaService.registrar("ELIMINAR", propiedad.getTitulo(), valor(usuario), valor(rol));
+        // Aviso a los clientes que tenian la propiedad en favoritos. Se publica
+        // ANTES de borrar porque el evento necesita titulo, tipo de operacion y
+        // comuna; el wishlist-service limpia los favoritos y deja el aviso.
+        // Si Kafka falla, el DELETE igual se completa (el publicador es async).
+        try {
+            propiedadEliminadaPublisher.publicar(propiedad);
+        } catch (RuntimeException ex) {
+            // Defensa extra: la baja no debe romperse porque el broker este caido.
+        }
         service.eliminar(id);
         return ResponseEntity.noContent().build();
     }

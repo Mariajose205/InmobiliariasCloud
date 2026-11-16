@@ -115,8 +115,10 @@ rabbitmq:
 app.kafka:
   topics:
     propiedades-nuevas: propiedades-nuevas
+    propiedades-eliminadas: propiedades-eliminadas
     notificaciones-sistema: notificaciones-sistema
     propiedades-nuevas-dlq: propiedades-nuevas.dlq
+    propiedades-eliminadas-dlq: propiedades-eliminadas.dlq
     notificaciones-sistema-dlq: notificaciones-sistema.dlq
 
 informes:

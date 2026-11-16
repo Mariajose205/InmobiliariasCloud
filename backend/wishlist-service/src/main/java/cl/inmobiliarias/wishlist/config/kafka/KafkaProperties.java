@@ -25,13 +25,16 @@ public class KafkaProperties {
     }
 
     /**
-     * Las 4 propiedades de topicos: los 2 topicos principales y sus 2 DLQ.
+     * Los topicos del flujo: las altas y las bajas de propiedades, las
+     * notificaciones por correo, y la DLQ de cada consumidor.
      */
     public static class Topics {
 
         private String propiedadesNuevas = "propiedades-nuevas";
+        private String propiedadesEliminadas = "propiedades-eliminadas";
         private String notificacionesSistema = "notificaciones-sistema";
         private String propiedadesNuevasDlq = "propiedades-nuevas.dlq";
+        private String propiedadesEliminadasDlq = "propiedades-eliminadas.dlq";
         private String notificacionesSistemaDlq = "notificaciones-sistema.dlq";
 
         public String getPropiedadesNuevas() {
@@ -40,6 +43,14 @@ public class KafkaProperties {
 
         public void setPropiedadesNuevas(String propiedadesNuevas) {
             this.propiedadesNuevas = propiedadesNuevas;
+        }
+
+        public String getPropiedadesEliminadas() {
+            return propiedadesEliminadas;
+        }
+
+        public void setPropiedadesEliminadas(String propiedadesEliminadas) {
+            this.propiedadesEliminadas = propiedadesEliminadas;
         }
 
         public String getNotificacionesSistema() {
@@ -56,6 +67,14 @@ public class KafkaProperties {
 
         public void setPropiedadesNuevasDlq(String propiedadesNuevasDlq) {
             this.propiedadesNuevasDlq = propiedadesNuevasDlq;
+        }
+
+        public String getPropiedadesEliminadasDlq() {
+            return propiedadesEliminadasDlq;
+        }
+
+        public void setPropiedadesEliminadasDlq(String propiedadesEliminadasDlq) {
+            this.propiedadesEliminadasDlq = propiedadesEliminadasDlq;
         }
 
         public String getNotificacionesSistemaDlq() {

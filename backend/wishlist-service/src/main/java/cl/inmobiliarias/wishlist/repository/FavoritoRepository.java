@@ -15,4 +15,10 @@ public interface FavoritoRepository extends JpaRepository<Favorito, Long> {
     boolean existsByUsuarioEmailIgnoreCaseAndPropiedadId(String usuarioEmail, Long propiedadId);
 
     void deleteByUsuarioEmailIgnoreCaseAndPropiedadId(String usuarioEmail, Long propiedadId);
+
+    /** Todos los usuarios que tienen una propiedad en favoritos (para la baja). */
+    List<Favorito> findByPropiedadId(Long propiedadId);
+
+    /** Borra el favorito de todos los usuarios cuando la propiedad se elimina. */
+    void deleteByPropiedadId(Long propiedadId);
 }
