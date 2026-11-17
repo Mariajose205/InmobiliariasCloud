@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>InmobiliariasCloud - Guía técnica y guion de defensa</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm 15mm 14mm; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: "Segoe UI", Calibri, Arial, sans-serif; font-size: 10pt; line-height: 1.45; color: #1b2430; margin: 0; }
+  h1 { font-size: 19pt; color: #0b3d6b; border-bottom: 3px solid #0d6efd; padding-bottom: 6px; margin: 0 0 12px; }
+  h2 { font-size: 13.5pt; color: #0b3d6b; margin: 20px 0 7px; }
+  h3 { font-size: 11.2pt; color: #12699e; margin: 14px 0 5px; }
+  h4 { font-size: 10.3pt; color: #1b2430; margin: 12px 0 4px; }
+  p { margin: 0 0 7px; text-align: justify; }
+  ul, ol { margin: 4px 0 9px 18px; padding: 0; }
+  li { margin: 2px 0; }
+  pre { background: #0f172a; color: #e6edf3; padding: 8px 10px; border-radius: 6px; font-family: Consolas, "Courier New", monospace; font-size: 8.1pt; line-height: 1.34; white-space: pre-wrap; word-break: break-word; margin: 5px 0 9px; }
+  code { font-family: Consolas, "Courier New", monospace; font-size: 8.7pt; background: #eef2f7; padding: 1px 4px; border-radius: 3px; }
+  pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+  table { width: 100%; border-collapse: collapse; margin: 7px 0 11px; font-size: 8.8pt; }
+  th { background: #0b3d6b; color: #fff; text-align: left; padding: 5px 7px; font-weight: 600; }
+  td { border-bottom: 1px solid #dbe3ec; padding: 4px 7px; vertical-align: top; }
+  th, td { word-break: break-word; }
+  tr:nth-child(even) td { background: #f6f9fc; }
+  tr { page-break-inside: avoid; }
+  .ok { color: #137a3a; font-weight: 600; }
+  .bad { color: #b42318; font-weight: 600; }
+  .warn { color: #9a6700; font-weight: 600; }
+  .callout { border-left: 4px solid #0d6efd; background: #eef5ff; padding: 7px 11px; margin: 9px 0; border-radius: 4px; font-size: 9.4pt; }
+  .callout.warn { border-left-color: #d97706; background: #fff7e6; }
+  .callout.ok { border-left-color: #16a34a; background: #ecfdf3; }
+  .callout.dark { border-left-color: #0b3d6b; background: #eef2f7; }
+  .section { page-break-before: always; }
+  .small { font-size: 8.6pt; color: #5b6b7c; }
+  .center { text-align: center; }
+  .cover { height: 252mm; page-break-after: always; background: linear-gradient(150deg, #071a2f 0%, #0b3d6b 55%, #0d6efd 130%); color: #fff; border-radius: 10px; padding: 34mm 22mm; display: flex; flex-direction: column; justify-content: center; }
+  .cover-kicker { font-size: 10pt; letter-spacing: 3px; text-transform: uppercase; color: #9ec5ff; margin-bottom: 10mm; }
+  .cover-title { font-size: 40pt; line-height: 1.05; color: #fff; border: none; margin: 0 0 5mm; padding: 0; }
+  .cover-sub { font-size: 15pt; color: #dbeafe; margin: 0 0 3mm; }
+  .cover-sub2 { font-size: 11pt; color: #bfdbfe; margin: 0 0 22mm; }
+  .cover-meta { font-size: 9.5pt; color: #dbeafe; border-top: 1px solid rgba(255,255,255,.35); padding-top: 5mm; }
+  .cover-meta p { margin: 1.5mm 0; text-align: left; }
+  .toc { column-count: 2; column-gap: 12mm; font-size: 9.4pt; }
+  .toc div { margin: 0 0 3px; break-inside: avoid; }
+  .toc a { color: #0b3d6b; text-decoration: none; }
+  .toc .lvl2 { margin-left: 5mm; color: #4a5b6d; }
+  .kbd { font-family: Consolas, monospace; background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 3px; padding: 0 4px; }
+  .tag { display: inline-block; font-size: 7.6pt; font-weight: 700; letter-spacing: .5px; padding: 1px 6px; border-radius: 10px; color: #fff; background: #0b3d6b; vertical-align: middle; }
+  .tag.g { background: #15803d; } .tag.r { background: #b42318; } .tag.y { background: #b45309; } .tag.b { background: #1d4ed8; }
+  .grid2 { display: flex; gap: 8px; } .grid2 > div { flex: 1; }
+  .evid { background: #f8fafc; border: 1px solid #dbe3ec; border-left: 4px solid #0b3d6b; padding: 6px 10px; margin: 6px 0 10px; font-size: 8.8pt; }
+  .evid b { color: #0b3d6b; }
+  .no-break { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="cover-kicker">Documento técnico · versión 2</div>
+  <h1 class="cover-title">InmobiliariasCloud</h1>
+  <p class="cover-sub">Arquitectura, identidad, mensajería y verificación</p>
+  <p class="cover-sub2">Guía de estudio y guion de defensa con pruebas ejecutables</p>
+  <div class="cover-meta">
+    <p><b>Sitio:</b> https://inmobiliariasduoc.duckdns.org</p>
+    <p><b>API:</b> https://qe8w2nla3a.execute-api.us-east-1.amazonaws.com</p>
+    <p><b>Repositorio:</b> Mariajose205/InmobiliariasCloud</p>
+    <p><b>Fecha:</b> 17 de noviembre de 2026</p>
+  </div>
+</div>
+
+<h1 id="toc">Índice</h1>
+<div class="toc">
+  <div><a href="#s1">1. Resumen ejecutivo</a></div>
+  <div><a href="#s2">2. Actores y casos de uso</a></div>
+  <div><a href="#s3">3. Arquitectura desplegada</a></div>
+  <div><a href="#s4">4. Camino de una petición</a></div>
+  <div><a href="#s5">5. Glosario técnico</a></div>
+  <div><a href="#s6">6. Azure Entra ID (staff)</a></div>
+  <div><a href="#s7">7. Amazon Cognito (clientes)</a></div>
+  <div><a href="#s8">8. Comparación y matriz de permisos</a></div>
+  <div><a href="#s9">9. API Gateway en detalle</a></div>
+  <div><a href="#s10">10. Los microservicios</a></div>
+  <div><a href="#s11">11. Kafka: eventos</a></div>
+  <div><a href="#s12">12. RabbitMQ: tareas</a></div>
+  <div><a href="#s13">13. Frontend React</a></div>
+  <div><a href="#s14">14. CI/CD y despliegue</a></div>
+  <div><a href="#s15">15. Seguridad en capas</a></div>
+  <div><a href="#s16">16. Resiliencia y patrones</a></div>
+  <div><a href="#s17">17. Verificación de los 5 riesgos</a></div>
+  <div><a href="#s18">18. Guion de presentación</a></div>
+  <div class="lvl2"><a href="#acto1">Acto 1 · Catálogo público</a></div>
+  <div class="lvl2"><a href="#acto2">Acto 2 · Público acotado</a></div>
+  <div class="lvl2"><a href="#acto3">Acto 3 · Identidad no falsificable</a></div>
+  <div class="lvl2"><a href="#acto4">Acto 4 · Roles en el backend</a></div>
+  <div class="lvl2"><a href="#acto5">Acto 5 · Frontend y API Gateway</a></div>
+  <div class="lvl2"><a href="#acto6">Acto 6 · Kafka real</a></div>
+  <div class="lvl2"><a href="#acto7">Acto 7 · RabbitMQ e informe</a></div>
+  <div class="lvl2"><a href="#acto8">Acto 8 · Login y JWT</a></div>
+  <div class="lvl2"><a href="#acto9">Acto 9 · Aviso de baja</a></div>
+  <div class="lvl2"><a href="#acto10">Acto 10 · Datos sensibles fuera</a></div>
+  <div><a href="#s19">19. Preguntas de defensa</a></div>
+  <div><a href="#s20">20. Chuleta de comandos</a></div>
+  <div><a href="#s21">21. Anexo: evidencia recolectada</a></div>
+</div>
+
+<section class="section">
+<h1 id="s1">1. Resumen ejecutivo</h1>
+<p>InmobiliariasCloud es una <b>SPA en React</b> para un catálogo inmobiliario, apoyada en <b>dos microservicios Spring Boot</b>, <b>dos proveedores de identidad</b> (Azure Entra ID para el staff y Amazon Cognito para los clientes), un <b>API Gateway HTTP</b> como única puerta de entrada, <b>PostgreSQL</b> como estado y <b>dos brokers</b> con roles distintos: <b>Kafka</b> para el flujo de eventos de la lista de deseos y <b>RabbitMQ</b> para las tareas del informe PDF.</p>
+
+<table>
+  <tr><th>Componente</th><th>Tecnología</th><th>Rol en el sistema</th></tr>
+  <tr><td>Frontend</td><td>React + Vite + React Router + Bootstrap</td><td>Catálogo, panel de administración, área de cliente</td></tr>
+  <tr><td>Puerta de entrada</td><td>AWS API Gateway (HTTP API) + VPC Link</td><td>Autenticación JWT, CORS, enrutamiento, inyección de identidad</td></tr>
+  <tr><td>Staff</td><td>Azure Entra ID + MSAL</td><td>Admin y corredor; roles por correo u <code>oid</code></td></tr>
+  <tr><td>Clientes</td><td>Amazon Cognito User Pool + SRP</td><td>Autoregistro, favoritos, alertas, novedades, avisos</td></tr>
+  <tr><td>Catálogo</td><td>Spring Boot <code>inmobiliaria-service</code></td><td>CRUD de propiedades, auditoría, informe PDF, productor Kafka/Rabbit</td></tr>
+  <tr><td>Cliente</td><td>Spring Boot <code>wishlist-service</code></td><td>Favoritos, alertas, novedades, avisos, estadísticas, consumidor/productor Kafka</td></tr>
+  <tr><td>Estado</td><td>PostgreSQL 16</td><td>Tablas del catálogo y de la relación con el cliente</td></tr>
+  <tr><td>Eventos</td><td>Kafka KRaft (3 brokers)</td><td>Altas, bajas y notificaciones agrupadas</td></tr>
+  <tr><td>Tareas</td><td>RabbitMQ (cluster de 2 nodos)</td><td>Informe PDF y aviso de “procesando”, con DLQ</td></tr>
+</table>
+
+<div class="callout ok">
+  <b>Estado de la verificación (17-11-2026).</b> Se probaron en vivo los cinco riesgos de la rúbrica. Cuatro pasaron sin observaciones. El quinto (transacción pública que expone datos sensibles) <b>se detectó y se corrigió</b>: el catálogo público devolvía el correo corporativo y el <code>objectId</code> de Entra de quien publicó. Hoy esos campos ya no se serializan y existe un test que lo impide.
+</div>
+
+<h2>Qué se demostró y con qué</h2>
+<table>
+  <tr><th>Riesgo de la rúbrica</th><th>Resultado</th><th>Prueba principal</th></tr>
+  <tr><td>Transacción pública que expone datos sensibles o modifica estado</td><td><span class="ok">Corregido</span></td><td>3 rutas públicas de 36; 14 escrituras dan 401; <code>@JsonIgnore</code> + test</td></tr>
+  <tr><td>Usuario público llamando funciones de Admin</td><td><span class="ok">No ocurre</span></td><td>401 sin token; 403 por rol en el backend; cabeceras falsas rechazadas</td></tr>
+  <tr><td>Rutas incoherentes entre frontend y API Gateway</td><td><span class="ok">Coherentes</span></td><td>26/26 rutas usadas por el frontend existen; 401 con CORS; 404 sin CORS</td></tr>
+  <tr><td>Kafka levanta pero nadie produce ni consume</td><td><span class="ok">Flujo real</span></td><td>21 + 2 + 11 mensajes, <code>lag 0</code>, 23 novedades y 3 correos generados</td></tr>
+  <tr><td>Login/JWT roto tras agregar Cognito</td><td><span class="ok">Intacto</span></td><td>Cognito 200/401/401/401/403; Entra y Cognito no se mezclan</td></tr>
+</table>
+</section>
+
+<section class="section">
+<h1 id="s2">2. Actores y casos de uso</h1>
+<table>
+  <tr><th>Actor</th><th>Identidad</th><th>Qué puede hacer</th></tr>
+  <tr><td>Visitante / invitado</td><td>Sin sesión, o cuenta Entra sin rol</td><td>Ver el catálogo público y las comunas</td></tr>
+  <tr><td>Cliente</td><td>Cognito User Pool</td><td>Registrarse, confirmar correo, favoritos, alertas por comuna, novedades agrupadas, avisos de propiedades eliminadas</td></tr>
+  <tr><td>Corredor</td><td>Entra ID</td><td>Crear y eliminar propiedades; pedir informe PDF <b>solo de sus</b> propiedades</td></tr>
+  <tr><td>Administrador</td><td>Entra ID</td><td>CRUD completo, auditoría, dashboard, informe con <b>todas</b> las propiedades, administración de colas y topics</td></tr>
+</table>
+
+<h2>Reglas de negocio visibles en la demo</h2>
+<ul>
+  <li>Un cliente <b>no</b> puede editar propiedades: su token ni siquiera sirve en las rutas de staff.</li>
+  <li>Un corredor <b>no</b> puede editar: solo <code>POST</code> y <code>DELETE</code>.</li>
+  <li>El catálogo es público, pero <b>no</b> expone quién publicó.</li>
+  <li>Al eliminar una propiedad, el cliente que la tenía en favoritos recibe un aviso y el favorito desaparece solo.</li>
+  <li>Las novedades se agrupan: 6 pendientes o un barrido diario a las 20:00 (America/Santiago).</li>
+</ul>
+</section>
+
+<section class="section">
+<h1 id="s3">3. Arquitectura desplegada</h1>
+<pre><code>Navegador (React SPA, https://inmobiliariasduoc.duckdns.org)
+        |  fetch + Authorization: Bearer &lt;access_token&gt;
+        v
+AWS API Gateway  (HTTP API, us-east-1, id qe8w2nla3a)
+ |-- CORS (origen exacto, preflight OPTIONS)
+ |-- Authorizer JWT "azure-entra-jwt"       -> rutas de staff
+ |-- Authorizer JWT "cognito-clientes-jwt"  -> rutas de cliente
+ `-- Integraciones HTTP_PROXY por metodo (GET/POST/PUT/DELETE)
+        |  ConnectionType: VPC_LINK
+        v
+VPC Link -> 2 NLB internos -> target groups (health check TCP)
+        |
+        v
+EC2 Backend 54.88.89.184  (Docker Compose, red bridge "inmob-red")
+ |-- postgres:16-alpine          (volumen pgdata)
+ |-- rabbitmq + rabbitmq2        (cluster 2 nodos; 5672 interno, 15672/15673 consolas)
+ |-- kafka + kafka2 + kafka3     (cluster KRaft 3 brokers; 9092/9093 internos)
+ |-- inmobiliaria-service :8081
+ |-- wishlist-service     :8082
+ |-- mailhog              :1025 SMTP / :8025 UI
+ `-- kafka-ui             :8080
+
+EC2 Frontend 98.83.252.223
+ `-- caddy :80/:443 (TLS Let's Encrypt) -> nginx estatico (bundle Vite)</code></pre>
+
+<h2>Por qué esta forma</h2>
+<table>
+  <tr><th>Decisión</th><th>Motivo</th></tr>
+  <tr><td>API Gateway como única entrada</td><td>Centraliza autenticación JWT, CORS y enrutamiento; los microservicios no validan criptografía</td></tr>
+  <tr><td>VPC Link + NLB internos</td><td>Los puertos 8081/8082 no se exponen a internet; solo API Gateway los alcanza</td></tr>
+  <tr><td>Dos microservicios</td><td>Separar el catálogo (staff) de la relación con el cliente (wishlist)</td></tr>
+  <tr><td>Una base PostgreSQL</td><td>Simplicidad del laboratorio; tablas separadas por prefijo y sin acceso cruzado</td></tr>
+  <tr><td>Kafka y RabbitMQ</td><td>Kafka para eventos con relectura y particiones; Rabbit para tareas puntuales con ACK y DLQ</td></tr>
+</table>
+</section>
+
+<section class="section">
+<h1 id="s4">4. Camino de una petición autenticada</h1>
+<ol>
+  <li>El navegador obtiene un <b>access token</b> (MSAL para staff, Cognito para clientes).</li>
+  <li>Lo envía como <code>Authorization: Bearer &lt;token&gt;</code>.</li>
+  <li>API Gateway descarga el <b>JWKS</b> del emisor y valida firma, <code>iss</code>, <code>aud</code>, <code>exp</code> y <code>scope</code>.</li>
+  <li>Si el token es válido, <b>sobrescribe</b> las cabeceras <code>X-User</code>, <code>X-User-Oid</code>, <code>X-User-Name</code> (y <code>X-User-Rol</code> en Cognito) con los claims. El valor que mande el navegador se descarta.</li>
+  <li>La integración <code>HTTP_PROXY</code> reenvía la petición por el VPC Link al NLB y al microservicio.</li>
+  <li>El <code>IdentidadInterceptor</code> resuelve el <b>rol de negocio</b> y aplica la matriz de permisos.</li>
+  <li>El microservicio responde y API Gateway agrega las cabeceras CORS.</li>
+</ol>
+
+<div class="callout">
+  <b>Regla de oro:</b> la <b>autenticación</b> (¿el token es válido?) la hace API Gateway; la <b>autorización</b> (¿este rol puede?) la hace el microservicio. Por eso un 401 y un 403 significan cosas distintas y se pueden demostrar por separado.
+</div>
+
+<h2>Los tres códigos que hay que saber leer</h2>
+<table>
+  <tr><th>Código</th><th>Quién lo devuelve</th><th>Significado</th><th>Cuerpo típico</th></tr>
+  <tr><td><b>401</b></td><td>API Gateway</td><td>No hay token, es inválido o es de otra audiencia/emisor</td><td><code>{"message":"Unauthorized"}</code></td></tr>
+  <tr><td><b>403</b></td><td>API Gateway</td><td>Token válido pero sin el <i>scope</i> exigido</td><td><code>{"message":"Forbidden"}</code></td></tr>
+  <tr><td><b>403</b></td><td>Microservicio</td><td>Token válido pero el rol no alcanza</td><td><code>{"error":"Solo el administrador..."}</code></td></tr>
+  <tr><td><b>404</b></td><td>API Gateway</td><td>La ruta no existe (y sin cabeceras CORS)</td><td>HTML/JSON genérico</td></tr>
+</table>
+</section>
+
+<section class="section">
+<h1 id="s5">5. Glosario técnico</h1>
+
+<h2>Web y frontend</h2>
+<table>
+  <tr><th>Término</th><th>Significado</th><th>En el proyecto</th></tr>
+  <tr><td>SPA</td><td>Single Page Application: un bundle JS navega sin recargar</td><td>React + Vite</td></tr>
+  <tr><td>CSR</td><td>Client-Side Rendering: el HTML llega vacío y React pinta</td><td><code>frontend-react</code></td></tr>
+  <tr><td>Build-time env</td><td>Variables <code>VITE_*</code> se incrustan al compilar</td><td>GitHub Actions + Docker build-args</td></tr>
+  <tr><td>Polling</td><td>Consultas periódicas para reflejar cambios sin recargar</td><td>Avisos y favoritos cada 15 s</td></tr>
+</table>
+
+<h2>Identidad y seguridad</h2>
+<table>
+  <tr><th>Término</th><th>Significado</th></tr>
+  <tr><td>IdP</td><td>Identity Provider: autentica y emite tokens (Entra ID, Cognito)</td></tr>
+  <tr><td>OAuth 2.0</td><td>Marco de autorización delegada; define cómo se obtiene un access token</td></tr>
+  <tr><td>OIDC</td><td>Capa de identidad sobre OAuth 2.0; agrega el ID token</td></tr>
+  <tr><td>JWT</td><td>Token firmado <code>header.payload.signature</code>; el payload son claims</td></tr>
+  <tr><td>Claim</td><td>Atributo del token: <code>sub</code>, <code>oid</code>, <code>email</code>, <code>name</code>, <code>rol</code>, <code>scope</code>, <code>aud</code>, <code>iss</code>, <code>exp</code></td></tr>
+  <tr><td>Issuer (<code>iss</code>)</td><td>Quién emitió el token (tenant de Entra o User Pool)</td></tr>
+  <tr><td>Audience (<code>aud</code>)</td><td>Para quién fue emitido (la API o el app client)</td></tr>
+  <tr><td>Scope</td><td>Permiso delegado: <code>access_as_user</code> o <code>aws.cognito.signin.user.admin</code></td></tr>
+  <tr><td>Access token</td><td>Credencial para llamar a la API; viaja como Bearer</td></tr>
+  <tr><td>ID token</td><td>Datos de identidad para la app; <b>no</b> sirve para esta API</td></tr>
+  <tr><td>Refresh token</td><td>Renueva el access token sin pedir contraseña</td></tr>
+  <tr><td>SRP</td><td>Secure Remote Password: la contraseña no viaja al servidor</td></tr>
+  <tr><td>MSAL</td><td>Microsoft Authentication Library, SDK de Entra en el navegador</td></tr>
+  <tr><td>RBAC</td><td>Role-Based Access Control: permisos por rol</td></tr>
+  <tr><td>401 vs 403</td><td>401 = no autenticado; 403 = autenticado sin permiso</td></tr>
+</table>
+
+<h2>API y red</h2>
+<table>
+  <tr><th>Término</th><th>Significado</th></tr>
+  <tr><td>HTTP API</td><td>Tipo liviano de API Gateway con authorizer JWT nativo</td></tr>
+  <tr><td>Authorizer JWT</td><td>API Gateway valida el token contra el JWKS del emisor, sin Lambda</td></tr>
+  <tr><td>Integración HTTP_PROXY</td><td>Reenvía la petición al backend sin transformarla</td></tr>
+  <tr><td>CORS</td><td>Reglas del navegador para peticiones cross-origin; el preflight es el OPTIONS</td></tr>
+  <tr><td>VPC Link</td><td>Conexión privada de API Gateway a recursos dentro de la VPC</td></tr>
+  <tr><td>NLB / Target Group</td><td>Balanceador de red interno y grupo de destinos con health check</td></tr>
+  <tr><td>Security Group</td><td>Firewall por instancia, puerto y origen</td></tr>
+</table>
+
+<h2>Mensajería</h2>
+<table>
+  <tr><th>Término</th><th>Significado</th></tr>
+  <tr><td>Broker</td><td>Servidor de mensajería (Kafka o RabbitMQ)</td></tr>
+  <tr><td>Productor / Consumidor</td><td>Quien publica / quien lee y procesa</td></tr>
+  <tr><td>Topic</td><td>Canal lógico de Kafka, dividido en particiones</td></tr>
+  <tr><td>Partición</td><td>Unidad de paralelismo y orden</td></tr>
+  <tr><td>Offset</td><td>Posición de un mensaje dentro de una partición</td></tr>
+  <tr><td>Consumer group</td><td>Consumidores que se reparten las particiones; cada partición la lee uno</td></tr>
+  <tr><td>Key</td><td>Clave que determina la partición (<code>hash(key) % particiones</code>)</td></tr>
+  <tr><td>Retención</td><td>Tiempo que Kafka conserva los mensajes (7 días aquí)</td></tr>
+  <tr><td>DLQ</td><td>Dead Letter Queue: destino de mensajes que fallaron definitivamente</td></tr>
+  <tr><td>ACK</td><td>Confirmación de procesamiento</td></tr>
+  <tr><td>At-least-once</td><td>Entrega “al menos una vez”: puede duplicar, exige idempotencia</td></tr>
+  <tr><td>Exchange</td><td>Componente de RabbitMQ que enruta mensajes a colas</td></tr>
+  <tr><td>Fanout / Direct</td><td>Copia a todas las colas / enruta por routing key exacta</td></tr>
+  <tr><td>Routing key</td><td>Etiqueta que usa el exchange direct para decidir la cola</td></tr>
+  <tr><td>Binding</td><td>Regla que une exchange con cola</td></tr>
+  <tr><td>Durable</td><td>Cola o exchange que sobrevive un reinicio</td></tr>
+  <tr><td>DLX</td><td>Dead Letter Exchange: exchange de los mensajes rechazados</td></tr>
+  <tr><td>TTL</td><td>Time-to-live; aquí las DLQ expiran a los 10 minutos</td></tr>
+  <tr><td>Prefetch</td><td>Mensajes sin ACK que puede tener un consumidor (aquí 1)</td></tr>
+</table>
+
+<h2>Persistencia y DevOps</h2>
+<table>
+  <tr><th>Término</th><th>Significado</th></tr>
+  <tr><td>JPA / Hibernate</td><td>Mapeo objeto-relacional entre entidades y tablas</td></tr>
+  <tr><td>Repository</td><td>Interfaz Spring Data con consultas derivadas del nombre</td></tr>
+  <tr><td>DTO</td><td>Objeto de transferencia separado de la entidad</td></tr>
+  <tr><td>Transacción</td><td>Bloque atómico: todo o nada (<code>@Transactional</code>)</td></tr>
+  <tr><td>ddl-auto: update</td><td>Hibernate crea o actualiza el esquema al arrancar</td></tr>
+  <tr><td>Constraint único</td><td>Índice que impide duplicados; base de la idempotencia</td></tr>
+  <tr><td>Docker Compose</td><td>Orquestación de contenedores con red y volúmenes</td></tr>
+  <tr><td>GitHub Actions</td><td>CI/CD: construye, publica y despliega</td></tr>
+  <tr><td>repository_dispatch</td><td>Evento que dispara el workflow de otro repositorio</td></tr>
+  <tr><td>CloudFormation / change set</td><td>Infraestructura como código; el change set muestra el diff</td></tr>
+  <tr><td>KRaft</td><td>Kafka sin Zookeeper: los brokers también son controllers</td></tr>
+</table>
+</section>
+<section class="section">
+<h1 id="s6">6. Azure Entra ID: el staff</h1>
+<p>El staff (administrador y corredor) ya existe en el directorio corporativo. No se crean cuentas locales: se usa el tenant de la organización y una <b>App Registration</b> que representa a la SPA.</p>
+
+<h2>6.1 Configuración en Azure</h2>
+<table>
+  <tr><th>Elemento</th><th>Valor / decisión</th><th>Por qué</th></tr>
+  <tr><td>Tenant</td><td><code>680da6eb-42e0-4147-bda4-8c06e4819411</code></td><td>Directorio de la organización</td></tr>
+  <tr><td>App Registration (client id)</td><td><code>f345fdc4-1687-49d0-b0cc-e0d45eb85731</code></td><td>Identifica a la SPA</td></tr>
+  <tr><td>Redirect URI</td><td><code>https://inmobiliariasduoc.duckdns.org/</code></td><td>Debe coincidir exactamente con el configurado en MSAL</td></tr>
+  <tr><td>Scope expuesto</td><td><code>api://f345fdc4-.../access_as_user</code></td><td>Hace que Entra emita un access token <b>cuya audiencia es la API</b>, no Graph</td></tr>
+  <tr><td>Roles de negocio</td><td>Se resuelven por correo u <code>oid</code> en el backend</td><td>No se depende de “App Roles” de Azure; el directorio no siempre los tiene</td></tr>
+</table>
+
+<div class="callout">
+  <b>El detalle que más se pregunta:</b> si la SPA pidiera solo <code>User.Read</code>, el token tendría audiencia <b>Microsoft Graph</b> y la API lo rechazaría. Al exponer un scope propio y pedirlo, el token sale con <code>aud = api://&lt;client-id&gt;</code>, que es exactamente lo que valida API Gateway.
+</div>
+
+<h2>6.2 Flujo en el navegador (MSAL)</h2>
+<ol>
+  <li>El usuario pulsa “Ingresar” y MSAL lo redirige a Entra ID.</li>
+  <li>Entra autentica y devuelve el código; MSAL lo canjea por tokens.</li>
+  <li>La sesión se guarda en <b>sessionStorage</b>, no en localStorage: al cerrar la pestaña desaparece.</li>
+  <li>Antes de cada llamada, <code>obtenerAccessToken()</code> pide un token con <code>scopes: [API_SCOPE]</code> (usa la caché si sigue vigente).</li>
+  <li>El token viaja como <code>Authorization: Bearer ...</code>.</li>
+</ol>
+
+<h2>6.3 Claims que importan</h2>
+<table>
+  <tr><th>Claim</th><th>Ejemplo</th><th>Uso</th></tr>
+  <tr><td><code>iss</code></td><td><code>https://login.microsoftonline.com/680da6eb.../v2.0</code></td><td>API Gateway valida el emisor</td></tr>
+  <tr><td><code>aud</code></td><td><code>api://f345fdc4-...</code></td><td>API Gateway valida la audiencia</td></tr>
+  <tr><td><code>preferred_username</code></td><td><code>administrador@inmobiliariaduoc.onmicrosoft.com</code></td><td>Se copia a <code>X-User</code></td></tr>
+  <tr><td><code>oid</code></td><td><code>5ce11c6e-c796-41eb-b8ed-1872878cd197</code></td><td>Se copia a <code>X-User-Oid</code>; identifica aunque cambie el correo</td></tr>
+  <tr><td><code>name</code></td><td><code>Administrador</code></td><td>Se copia a <code>X-User-Name</code></td></tr>
+  <tr><td><code>scp</code></td><td><code>access_as_user</code></td><td>API Gateway exige el scope</td></tr>
+</table>
+
+<h2>6.4 Resolución del rol</h2>
+<p>El microservicio compara la identidad recibida con la configuración de <code>application-prod.yml</code>:</p>
+<pre><code>autorizacion-requerida: true
+admin-email: administrador@inmobiliariaduoc.onmicrosoft.com
+admin-oid:   5ce11c6e-c796-41eb-b8ed-1872878cd197
+corredor-email: Corredor@InmobiliariaDuoc.onmicrosoft.com
+corredor-oid:   0a73de94-2722-4221-836c-bd7f3af16980</code></pre>
+<ul>
+  <li>Coincide con admin (correo <b>u</b> <code>oid</code>) → <b>ADMIN</b>.</li>
+  <li>Coincide con corredor → <b>CORREDOR</b>.</li>
+  <li>Cualquier otra cuenta Entra válida → <b>PUBLIC</b>: puede ver el catálogo, nada más.</li>
+</ul>
+<div class="callout warn">
+  <b>Por qué se acepta el <code>oid</code>:</b> el correo puede cambiar (matrimonio, alias, mayúsculas). El <code>objectId</code> es estable y lo trae siempre el access token de Entra. Aun así, la comparación de correo se hace <i>case-insensitive</i>.
+</div>
+</section>
+
+<section class="section">
+<h1 id="s7">7. Amazon Cognito: los clientes</h1>
+<p>Los clientes son público general: no pueden existir en el directorio corporativo. Cognito permite <b>autoregistro</b>, verificación por correo y un <b>User Pool</b> separado del staff.</p>
+
+<h2>7.1 Configuración del User Pool</h2>
+<table>
+  <tr><th>Elemento</th><th>Valor / decisión</th></tr>
+  <tr><td>User Pool</td><td><code>us-east-1_VOjUlX3N7</code> (<code>inmobiliarias-clientes</code>)</td></tr>
+  <tr><td>App client</td><td><code>5c7ke1lrusghqkkio0682f6qvb</code>, <b>sin secreto</b> (es una SPA)</td></tr>
+  <tr><td>Username</td><td>El correo electrónico</td></tr>
+  <tr><td>Verificación</td><td>Código por correo, <code>email_verified</code></td></tr>
+  <tr><td>Contraseña</td><td>Mínimo 8, con mayúscula, minúscula y número</td></tr>
+  <tr><td>MFA</td><td>Desactivado (laboratorio)</td></tr>
+  <tr><td>Flujos</td><td><code>ALLOW_USER_SRP_AUTH</code>, <code>ALLOW_USER_PASSWORD_AUTH</code> (pruebas CLI), <code>ALLOW_REFRESH_TOKEN_AUTH</code></td></tr>
+  <tr><td>Vigencias</td><td>Access 60 min, ID 60 min, refresh 30 días</td></tr>
+  <tr><td>Revocación</td><td><code>EnableTokenRevocation: true</code></td></tr>
+  <tr><td>Errores de existencia</td><td><code>PreventUserExistenceErrors: ENABLED</code></td></tr>
+</table>
+
+<h2>7.2 Trigger Pre Token Generation V2_0</h2>
+<p>Una Lambda (<code>inmobiliarias-cliente-rol</code>) agrega los claims <code>rol=CLIENTE</code>, <code>email</code> y <code>name</code> al token. Se usa <b>V2_0</b> y no V1_0 porque V1_0 solo personaliza el <b>ID token</b>, y API Gateway valida el <b>access token</b>.</p>
+<pre><code>// Salida del trigger (resumida)
+exports.handler = async (event) => {
+  event.response = {
+    claimsOverrideDetails: {
+      claimsToAddOrOverride: {
+        rol: 'CLIENTE',
+        email: event.request.userAttributes.email,
+        name: event.request.userAttributes.name || ''
+      }
+    }
+  };
+  return event;
+};</code></pre>
+
+<h2>7.3 Por qué el scope <code>aws.cognito.signin.user.admin</code></h2>
+<p>El access token y el ID token de Cognito comparten <code>iss</code> y <code>aud</code>. Sin una distinción, el authorizer aceptaría ambos. El scope <b>solo existe en el access token</b>, así que exigirlo en las rutas de cliente hace que un ID token reciba <b>403</b> de API Gateway. Es la barrera que impide usar el token equivocado.</p>
+
+<h2>7.4 SRP y la corrección del storage</h2>
+<p>El login usa <b>SRP</b>: el navegador demuestra conocimiento de la contraseña sin enviarla. El SDK <code>amazon-cognito-identity-js</code> crea un <code>CognitoUser</code> que <b>no hereda</b> el storage del pool. Como el pool usa <code>sessionStorage</code>, hay que pasarlo explícitamente:</p>
+<pre><code>const usuario = new CognitoUser({ Username: email, Pool: userPool, Storage: userPool.storage });</code></pre>
+<div class="callout warn">
+  <b>Bug real que costó depurar:</b> sin <code>Storage: userPool.storage</code>, el login guardaba los tokens en <code>localStorage</code> y <code>getCurrentUser()</code> (que lee <code>sessionStorage</code>) no encontraba la sesión: el usuario “entraba” pero la app lo mostraba deslogueado. Si alguien toca ese archivo, debe conservar esa línea.
+</div>
+
+<h2>7.5 Flujo completo del cliente</h2>
+<ol>
+  <li><b>Registro:</b> correo + contraseña → Cognito envía un código.</li>
+  <li><b>Confirmación:</b> el usuario ingresa el código → la cuenta queda confirmada.</li>
+  <li><b>Login SRP:</b> Cognito devuelve access, ID y refresh token.</li>
+  <li><b>Llamadas:</b> <code>/api/cliente/**</code> con el access token.</li>
+  <li><b>Refresh:</b> cuando el access token expira, se renueva con el refresh token (30 días).</li>
+  <li><b>Logout:</b> se revoca el refresh token y se limpian las claves del storage.</li>
+</ol>
+</section>
+
+<section class="section">
+<h1 id="s8">8. Comparación y matriz de permisos</h1>
+<table>
+  <tr><th>Aspecto</th><th>Entra ID (staff)</th><th>Cognito (clientes)</th></tr>
+  <tr><td>Público</td><td>Empleados / cuentas corporativas</td><td>Público general</td></tr>
+  <tr><td>Registro</td><td>Lo administra la organización</td><td>Autoregistro con confirmación de correo</td></tr>
+  <tr><td>SDK frontend</td><td>MSAL (<code>@azure/msal-browser</code>)</td><td><code>amazon-cognito-identity-js</code></td></tr>
+  <tr><td>Flujo</td><td>Redirect + OIDC</td><td>SRP directo contra el pool</td></tr>
+  <tr><td>Audience</td><td><code>api://&lt;client-id&gt;</code></td><td>App client id</td></tr>
+  <tr><td>Scope exigido</td><td><code>access_as_user</code></td><td><code>aws.cognito.signin.user.admin</code></td></tr>
+  <tr><td>Claim de rol</td><td>No viene: se deduce por correo u <code>oid</code></td><td><code>rol = CLIENTE</code> (Lambda)</td></tr>
+  <tr><td>Rutas</td><td><code>/api/propiedades</code> (escritura), <code>/api/auditoria</code>, <code>/api/me</code>, <code>/api/informes</code>, <code>/api/admin</code>, <code>/api/wishlist</code></td><td><code>/api/cliente/**</code></td></tr>
+</table>
+
+<h2>Matriz de permisos (la decide el backend)</h2>
+<table>
+  <tr><th>Operación</th><th>Público</th><th>CLIENTE</th><th>CORREDOR</th><th>ADMIN</th></tr>
+  <tr><td><code>GET /api/propiedades</code></td><td class="ok">Sí</td><td class="ok">Sí</td><td class="ok">Sí</td><td class="ok">Sí</td></tr>
+  <tr><td><code>GET /api/propiedades/&#123;id&#125;</code></td><td class="ok">Sí</td><td class="ok">Sí</td><td class="ok">Sí</td><td class="ok">Sí</td></tr>
+  <tr><td><code>GET /api/wishlist/comunas</code></td><td class="ok">Sí</td><td class="ok">Sí</td><td class="ok">Sí</td><td class="ok">Sí</td></tr>
+  <tr><td><code>POST /api/propiedades</code></td><td class="bad">No</td><td class="bad">No</td><td class="ok">Sí</td><td class="ok">Sí</td></tr>
+  <tr><td><code>PUT /api/propiedades/&#123;id&#125;</code></td><td class="bad">No</td><td class="bad">No</td><td class="bad">No</td><td class="ok">Sí</td></tr>
+  <tr><td><code>DELETE /api/propiedades/&#123;id&#125;</code></td><td class="bad">No</td><td class="bad">No</td><td class="ok">Sí</td><td class="ok">Sí</td></tr>
+  <tr><td><code>GET /api/auditoria</code></td><td class="bad">No</td><td class="bad">No</td><td class="bad">No</td><td class="ok">Sí</td></tr>
+  <tr><td><code>GET /api/admin/estadisticas</code></td><td class="bad">No</td><td class="bad">No</td><td class="bad">No</td><td class="ok">Sí</td></tr>
+  <tr><td><code>POST /api/informes/...</code></td><td class="bad">No</td><td class="bad">No</td><td class="ok">Sí</td><td class="ok">Sí</td></tr>
+  <tr><td><code>/api/cliente/**</code></td><td class="bad">No</td><td class="ok">Sí</td><td class="bad">No</td><td class="bad">No</td></tr>
+  <tr><td><code>/api/wishlist/**</code></td><td class="bad">No</td><td class="bad">No</td><td class="ok">Sí</td><td class="ok">Sí</td></tr>
+</table>
+<div class="callout">
+  <b>Ocultar botones no es seguridad.</b> El frontend puede esconder el botón de editar para un corredor, pero la decisión real la toma el interceptor del microservicio. La demo del Acto 4 lo prueba llamando al backend directamente.
+</div>
+</section>
+
+<section class="section">
+<h1 id="s9">9. API Gateway en detalle</h1>
+<h2>9.1 Recursos del stack</h2>
+<table>
+  <tr><th>Recurso</th><th>Función</th></tr>
+  <tr><td><code>AWS::ApiGatewayV2::Api</code></td><td>HTTP API <code>inmobiliarias-duoc-api</code> con <code>CorsConfiguration</code></td></tr>
+  <tr><td>2 × <code>::Authorizer</code></td><td><code>azure-entra-jwt</code> y <code>cognito-clientes-jwt</code>, ambos tipo JWT</td></tr>
+  <tr><td><code>::Integration</code></td><td>Una por método y servicio, con <code>ConnectionType: VPC_LINK</code></td></tr>
+  <tr><td><code>::Route</code></td><td>36 rutas: <b>3 públicas</b> con <code>AuthorizationType: NONE</code> y el resto con JWT + scope</td></tr>
+  <tr><td><code>::VpcLink</code></td><td>Conexión privada hacia la VPC</td></tr>
+  <tr><td>2 × NLB + Target Groups</td><td>Balanceo interno hacia 8081 y 8082, health check TCP</td></tr>
+  <tr><td>Cognito User Pool + Client + Lambda</td><td>Identidad de clientes y trigger de rol</td></tr>
+  <tr><td>Stage <code>$default</code></td><td><code>AutoDeploy: true</code>: las rutas nuevas se activan al aplicar el stack</td></tr>
+</table>
+
+<h2>9.2 CORS</h2>
+<ul>
+  <li><b>Orígenes exactos:</b> producción y desarrollo; nunca <code>*</code>.</li>
+  <li><b>Headers permitidos:</b> <code>Authorization</code>, <code>Content-Type</code>, <code>Accept</code>. Las <code>X-User*</code> <b>no</b> se permiten: el navegador no debe poder inyectarlas.</li>
+  <li><b><code>AllowCredentials: false</code></b>: se usa Bearer, no cookies, lo que reduce la superficie CSRF.</li>
+  <li><b>Preflight cacheado</b> 3600 s.</li>
+</ul>
+<div class="callout warn">
+  <b>Lección real:</b> cuando una ruta no existe, API Gateway responde <b>404 sin cabeceras CORS</b> y el navegador muestra “blocked by CORS policy”. La causa no era CORS sino la ruta faltante. La forma de distinguirlo es simple: una ruta existente sin token devuelve <b>401 con</b> <code>access-control-allow-origin</code>.
+</div>
+
+<h2>9.3 Inyección de identidad</h2>
+<pre><code>RequestParameters:
+  overwrite:header.X-User:      $context.authorizer.claims.preferred_username
+  overwrite:header.X-User-Oid:  $context.authorizer.claims.oid
+  overwrite:header.X-User-Name: $context.authorizer.claims.name</code></pre>
+<p>La acción <b><code>overwrite</code></b> es deliberada: si el navegador envía <code>X-User: administrador@...</code>, API Gateway lo descarta y escribe el claim real. En las rutas de cliente se agrega <code>rol</code>.</p>
+
+<h2>9.4 VPC Link, NLB y Security Groups</h2>
+<p>Los microservicios escuchan en <code>0.0.0.0</code> dentro del contenedor, pero el Security Group solo permite 8081/8082 desde el CIDR de la VPC. El único cliente legítimo es API Gateway a través del VPC Link y los NLB internos. Verificado: desde internet, <code>http://54.88.89.184:8081</code> y <code>:8082</code> <b>no responden</b>.</p>
+
+<h2>9.5 Cómo se actualiza</h2>
+<ol>
+  <li>Se edita <code>backend/aws/api-gateway.yaml</code>.</li>
+  <li>En CloudShell se crea un <b>change set</b> reutilizando los parámetros actuales.</li>
+  <li>Se revisa el diff (por ejemplo, solo dos <code>Add</code> para las rutas de avisos).</li>
+  <li>Se ejecuta y se espera <code>wait stack-update-complete</code> → <code>UPDATE_COMPLETE</code>.</li>
+</ol>
+<div class="callout">
+  <b>Por qué CloudShell:</b> es la única vía del proyecto con credenciales AWS. GitHub Actions construye imágenes, pero no aplica CloudFormation.
+</div>
+</section>
+<section class="section">
+<h1 id="s10">10. Los microservicios</h1>
+
+<h2>10.1 <code>inmobiliaria-service</code> (puerto 8081)</h2>
+<p>Dueño del catálogo. Entidad <code>Propiedad</code> (<code>propiedades</code>): título, categoría, tipo de operación (Venta/Arriendo), precio, tipo de precio, gastos comunes, ubicación, piezas, baños, estacionamiento, bodega, video, imágenes y autoría interna.</p>
+<table>
+  <tr><th>Método y ruta</th><th>Quién</th><th>Efecto</th></tr>
+  <tr><td><code>GET /api/propiedades</code></td><td>Público</td><td>Lista el catálogo (sin datos internos del autor)</td></tr>
+  <tr><td><code>GET /api/propiedades/&#123;id&#125;</code></td><td>Público</td><td>Detalle</td></tr>
+  <tr><td><code>POST /api/propiedades</code></td><td>ADMIN, CORREDOR</td><td>Crea, audita y publica <code>PropiedadCreadaEvent</code></td></tr>
+  <tr><td><code>PUT /api/propiedades/&#123;id&#125;</code></td><td>ADMIN</td><td>Edita y audita</td></tr>
+  <tr><td><code>DELETE /api/propiedades/&#123;id&#125;</code></td><td>ADMIN, CORREDOR</td><td>Audita, publica <code>PropiedadEliminadaEvent</code> y borra</td></tr>
+  <tr><td><code>GET /api/me</code></td><td>Cualquier autenticado</td><td>Identidad y rol resueltos</td></tr>
+  <tr><td><code>GET /api/auditoria</code></td><td>ADMIN</td><td>Últimas acciones</td></tr>
+  <tr><td><code>POST /api/informes/propiedades/pdf</code></td><td>ADMIN, CORREDOR</td><td>202: publica la tarea en RabbitMQ</td></tr>
+  <tr><td><code>/api/admin/queues|exchanges|bindings</code></td><td>ADMIN</td><td>Administración del broker</td></tr>
+</table>
+<div class="callout">
+  <b>Auditoría síncrona:</b> cada alta, edición o baja guarda una fila en <code>auditoria</code> con acción, propiedad, usuario y rol. Es síncrona a propósito: si la base falla, se sabe en la misma request. No depende de un broker.
+</div>
+
+<h2>10.2 <code>wishlist-service</code> (puerto 8082)</h2>
+<p>Dueño de la relación con el cliente. Los mismos controladores responden dos prefijos: <code>/api/wishlist/**</code> (staff) y <code>/api/cliente/**</code> (Cognito), aislando los datos por correo.</p>
+<table>
+  <tr><th>Tabla</th><th>Contenido</th><th>Restricción clave</th></tr>
+  <tr><td><code>wishlist_favoritos</code></td><td>Copia mínima de la propiedad para listar sin llamar al catálogo</td><td>único <code>(usuario_email, propiedad_id)</code></td></tr>
+  <tr><td><code>wishlist_alertas</code></td><td>Comunas que el usuario sigue</td><td>único <code>(usuario_email, comuna)</code></td></tr>
+  <tr><td><code>wishlist_novedades</code></td><td>Una fila por propiedad nueva relevante; <code>resumenId = null</code> mientras está pendiente</td><td>—</td></tr>
+  <tr><td><code>wishlist_novedades_resumen</code></td><td>Digest enviado: cantidad, comunas, motivo, <code>correo_enviado</code></td><td>—</td></tr>
+  <tr><td><code>wishlist_avisos</code></td><td>Aviso de propiedad eliminada</td><td>único <code>(usuario_email, propiedad_id)</code></td></tr>
+</table>
+<table>
+  <tr><th>Método y ruta</th><th>Quién</th><th>Efecto</th></tr>
+  <tr><td><code>GET /api/wishlist/comunas</code></td><td>Público</td><td>Comunas disponibles</td></tr>
+  <tr><td><code>/api/wishlist/favoritos</code></td><td>Staff autenticado</td><td>Favoritos propios</td></tr>
+  <tr><td><code>/api/wishlist/alertas|novedades</code></td><td>Staff autenticado</td><td>Alertas y novedades propias</td></tr>
+  <tr><td><code>/api/cliente/perfil</code></td><td>CLIENTE</td><td>Email, nombre y rol del claim</td></tr>
+  <tr><td><code>/api/cliente/favoritos|alertas|novedades|avisos</code></td><td>CLIENTE</td><td>Datos aislados por email</td></tr>
+  <tr><td><code>GET /api/admin/estadisticas</code></td><td>ADMIN</td><td>Métricas reales del dashboard</td></tr>
+  <tr><td><code>/api/admin/kafka/**</code></td><td>ADMIN</td><td>Topics y mensajes</td></tr>
+  <tr><td><code>POST /api/admin/notificaciones/resumen</code></td><td>ADMIN</td><td>Fuerza el barrido diario (demo)</td></tr>
+</table>
+
+<h2>10.3 Base de datos</h2>
+<p>Una sola instancia PostgreSQL 16 compartida, con tablas separadas por prefijo (<code>propiedades</code>, <code>auditoria</code> frente a <code>wishlist_*</code>). <code>ddl-auto: update</code> crea el esquema al arrancar y <code>DataSeeder</code> inserta datos demo la primera vez. Cada servicio tiene sus propios repositorios: no hay acceso cruzado a las tablas del otro.</p>
+</section>
+
+<section class="section">
+<h1 id="s11">11. Kafka: el flujo de eventos</h1>
+<h2>11.1 Cluster y decisiones</h2>
+<table>
+  <tr><th>Elemento</th><th>Valor</th></tr>
+  <tr><td>Modo</td><td>KRaft, sin Zookeeper</td></tr>
+  <tr><td>Brokers</td><td><code>kafka</code>, <code>kafka2</code>, <code>kafka3</code></td></tr>
+  <tr><td>Quórum de controllers</td><td>2 de 3</td></tr>
+  <tr><td>Topics internos</td><td>RF=3, <code>min.insync.replicas=2</code></td></tr>
+  <tr><td>Topics de negocio</td><td>RF=1, 3 particiones (4 en notificaciones), retención 7 días, <code>cleanup.policy=delete</code></td></tr>
+  <tr><td>Serialización</td><td>JSON tipada; el <code>JsonSerializer</code> agrega el header <code>__TypeId__</code></td></tr>
+  <tr><td>ACK</td><td>Manual (<code>ack-mode: manual</code>)</td></tr>
+  <tr><td>Errores</td><td><code>ErrorHandlingDeserializer</code> + <code>DefaultErrorHandler</code> con <code>DeadLetterPublishingRecoverer</code></td></tr>
+</table>
+
+<h2>11.2 Topics y grupos</h2>
+<table>
+  <tr><th>Topic</th><th>Part.</th><th>Key</th><th>Productor</th><th>Consumidor (grupo)</th><th>DLQ</th></tr>
+  <tr><td><code>propiedades-nuevas</code></td><td>3</td><td>comuna</td><td>inmobiliaria-service</td><td><code>PropiedadNuevaNotificador</code> (<code>wishlist-notifier-group</code>)</td><td><code>.dlq</code></td></tr>
+  <tr><td><code>propiedades-eliminadas</code></td><td>3</td><td>comuna</td><td>inmobiliaria-service</td><td><code>PropiedadEliminadaNotificador</code> (<code>wishlist-bajas-group</code>)</td><td><code>.dlq</code></td></tr>
+  <tr><td><code>notificaciones-sistema</code></td><td>4</td><td>email</td><td>wishlist-service</td><td><code>NotificacionDispatchConsumer</code> (<code>notificaciones-dispatch-group</code>)</td><td><code>.dlq</code></td></tr>
+</table>
+<p>La <b>key</b> fija la partición (<code>hash(key) % particiones</code>) y garantiza orden por comuna o por correo. La comuna se normaliza (por ejemplo, <code>Vina del Mar</code>) para que la misma comuna caiga siempre en la misma partición.</p>
+
+<h2>11.3 Flujo A: alta de propiedad → novedades agrupadas</h2>
+<ol>
+  <li><code>POST /api/propiedades</code> guarda la propiedad y publica el evento con <b>key = comuna</b>.</li>
+  <li><code>PropiedadNuevaNotificador</code> busca las alertas de esa comuna y crea una fila en <code>wishlist_novedades</code> por usuario afectado (<code>resumenId = null</code>).</li>
+  <li><code>ResumenNovedadesService</code> agrupa: si el usuario acumula <b>6 pendientes</b> (<code>NOTIF_UMBRAL</code>), crea un resumen con las 6 más antiguas; además, un <b>cron diario a las 20:00</b> (<code>NOTIF_CRON</code>, <code>America/Santiago</code>) agrupa lo que quede.</li>
+  <li>Publica <code>NotificacionSistemaEvent</code> en <code>notificaciones-sistema</code> con <b>key = email</b>.</li>
+  <li><code>NotificacionDispatchConsumer</code> envía <b>un solo correo</b> con el resumen y hace ACK.</li>
+  <li>El frontend consulta <code>GET /api/cliente/novedades</code> y muestra una alerta por resumen, con detalle desplegable.</li>
+</ol>
+<div class="callout ok">
+  <b>Anti-spam por diseño:</b> no se manda un correo por propiedad. Se agrupan por umbral o por barrido diario.
+</div>
+
+<h2>11.4 Flujo B: baja de propiedad → aviso y limpieza de favoritos</h2>
+<ol>
+  <li><code>DELETE /api/propiedades/&#123;id&#125;</code> registra auditoría, publica <code>PropiedadEliminadaEvent</code> <b>antes</b> de borrar (necesita título, tipo de operación y comuna) y luego elimina la propiedad.</li>
+  <li><code>wishlist-service</code> consume con el grupo <code>wishlist-bajas-group</code>.</li>
+  <li><code>AvisoService.registrarEliminacion</code> ejecuta en <b>una sola transacción</b>: busca los favoritos por <code>propiedadId</code>, crea un aviso por usuario afectado (si no existe, por la restricción única) y borra los favoritos de esa propiedad.</li>
+  <li>El texto se arma según <code>tipoOperacion</code>: “ya fue vendida” / “ya fue arrendada” / “ya fue vendida o arrendada”, siempre seguido de “y se eliminó automáticamente de tus favoritos.”</li>
+  <li><code>Home.jsx</code> y <code>Cliente.jsx</code> sondean cada <b>15 s</b>: el favorito desaparece y aparece la alerta. El botón “Entendido” llama a <code>DELETE /api/cliente/avisos/&#123;id&#125;</code>.</li>
+</ol>
+<div class="callout">
+  <b>Por qué es asíncrono:</b> la baja no debe fallar porque Kafka esté caído (el publicador no relanza). El costo es <b>consistencia eventual</b>: el favorito puede tardar hasta 15 s en desaparecer de la vista; el backend ya quedó consistente en milisegundos.
+</div>
+
+<h2>11.5 Semántica e idempotencia</h2>
+<ul>
+  <li><b>At-least-once:</b> Kafka puede reentregar. Por eso el aviso tiene restricción única <code>(usuario_email, propiedad_id)</code> y se verifica con <code>existsBy...</code> antes de insertar.</li>
+  <li><b>Orden por clave:</b> todos los eventos de la misma comuna van a la misma partición.</li>
+  <li><b>Relectura:</b> la retención de 7 días permite reprocesar si un consumidor estuvo caído.</li>
+  <li><b>DLQ:</b> un mensaje veneno no bloquea la partición; se publica en <code>&lt;topic&gt;.dlq</code>.</li>
+</ul>
+
+<h2>11.6 Por qué Kafka aquí y no RabbitMQ</h2>
+<p>Se necesita <b>registro de eventos</b>, particiones por comuna, varios consumidores independientes y posibilidad de <b>releer</b>. RabbitMQ en cambio está pensado para tareas puntuales que se consumen y desaparecen.</p>
+</section>
+
+<section class="section">
+<h1 id="s12">12. RabbitMQ: el flujo de tareas</h1>
+<h2>12.1 Topología</h2>
+<pre><code>                       +-------------------------------+
+publisher --fanout---&gt; | inmobiliaria.fanout           |
+                       +---------------+---------------+
+                                       v
+                        cola.correos.notificaciones
+                                       |
+                              NotificacionConsumer (SMTP)
+
+                       +-------------------------------+
+publisher --direct---&gt; | inmobiliaria.direct           |
+     rk=informe.pdf.generar                           |
+                       +---------------+---------------+
+                                       v
+                           cola.pdf.procesamiento
+                                       |
+                                  PdfConsumer
+                              (BD -&gt; PDF -&gt; disco -&gt; correo)
+
+Mensajes rechazados --&gt; inmobiliaria.dlx --rk--&gt; cola.*.dlq (TTL 10 min)</code></pre>
+
+<h2>12.2 Colas y garantías</h2>
+<table>
+  <tr><th>Cola</th><th>Exchange / routing key</th><th>Consumidor</th></tr>
+  <tr><td><code>cola.correos.notificaciones</code></td><td><code>inmobiliaria.fanout</code></td><td>Avisa que el informe se está procesando</td></tr>
+  <tr><td><code>cola.pdf.procesamiento</code></td><td><code>inmobiliaria.direct</code> / <code>informe.pdf.generar</code></td><td>Genera el PDF y lo envía</td></tr>
+  <tr><td><code>cola.correos.notificaciones.dlq</code></td><td><code>inmobiliaria.dlx</code></td><td>Mensajes fallidos del aviso</td></tr>
+  <tr><td><code>cola.pdf.procesamiento.dlq</code></td><td><code>inmobiliaria.dlx</code></td><td>Mensajes fallidos del PDF</td></tr>
+</table>
+<ul>
+  <li>Colas <b>durable</b>, <code>prefetch: 1</code>, <code>acknowledge-mode: auto</code>, <code>default-requeue-rejected: false</code>.</li>
+  <li><b>Exactamente 2 colas de trabajo + 2 DLQ</b>, que es lo que exige la rúbrica.</li>
+  <li>Los nombres viven en <code>RabbitProperties</code> (<code>application.yml</code>), no dispersos como literales.</li>
+  <li>Cluster de 2 nodos con consolas 15672 y 15673.</li>
+</ul>
+
+<h2>12.3 Flujo del informe</h2>
+<ol>
+  <li><code>POST /api/informes/propiedades/pdf</code> (ADMIN o CORREDOR).</li>
+  <li><code>InformePublisher</code> publica <b>dos mensajes</b>: al fanout (aviso “tu informe se está procesando”) y al direct con <code>rk=informe.pdf.generar</code> (trabajo real).</li>
+  <li>Responde <b>202 Accepted</b>: el trabajo aún no terminó.</li>
+  <li><code>PdfConsumer</code>: ADMIN recibe todas las propiedades; CORREDOR solo las creadas por él (por correo u <code>oid</code>). Genera el PDF, lo guarda en <code>/app/informes</code> y lo envía adjunto.</li>
+  <li>Si falla: <code>Reintentos</code> hace <b>3 intentos con backoff</b> (2 s, 4 s). Al agotar, lanza <code>AmqpRejectAndDontRequeueException</code>: NACK sin requeue → el DLX mueve el mensaje a la DLQ.</li>
+  <li>La DLQ tiene <b>TTL de 10 minutos</b> (<code>dlq-ttl: 600000</code>).</li>
+</ol>
+
+<h2>12.4 Kafka vs RabbitMQ (para defender)</h2>
+<table>
+  <tr><th>Criterio</th><th>Kafka</th><th>RabbitMQ</th></tr>
+  <tr><td>Modelo</td><td>Log distribuido; los consumidores leen por offset</td><td>Cola; el broker empuja y borra al hacer ACK</td></tr>
+  <tr><td>Relectura</td><td class="ok">Sí (retención)</td><td class="bad">No</td></tr>
+  <tr><td>Orden</td><td>Por partición (clave)</td><td>Por cola</td></tr>
+  <tr><td>Uso aquí</td><td>Eventos de propiedades y notificaciones agrupadas</td><td>Tareas de informe y aviso de “procesando”</td></tr>
+  <tr><td>Escalado</td><td>Particiones + consumer groups</td><td>Más consumidores sobre la misma cola</td></tr>
+  <tr><td>Semántica</td><td>At-least-once + idempotencia</td><td>ACK/NACK + DLQ</td></tr>
+</table>
+</section>
+
+<section class="section">
+<h1 id="s13">13. Frontend React</h1>
+<ul>
+  <li><b>Páginas:</b> <code>Home</code> (catálogo público, avisos y novedades), <code>Cliente</code> (registro/login Cognito, perfil, favoritos, alertas, novedades, avisos), <code>Admin</code> (CRUD, auditoría, informe, broker), <code>Dashboard</code> (métricas reales), <code>Wishlist</code>, <code>Login</code>.</li>
+  <li><b>Dos clientes HTTP:</b> <code>apiClient.js</code> para rutas de staff (token MSAL) y <code>apiCliente.js</code> para <code>/api/cliente/**</code> (token Cognito).</li>
+  <li><b>Sesiones:</b> MSAL en <code>sessionStorage</code>; Cognito con <code>userPool.storage</code> en <code>sessionStorage</code>; claves propias para correo, nombre y rol.</li>
+  <li><b>Favoritos:</b> <code>PropertyCatalog</code> usa <code>/api/cliente/favoritos</code> si hay sesión Cognito y <code>/api/wishlist/favoritos</code> si es staff.</li>
+  <li><b>Polling cada 15 s</b> en <code>Home</code> y <code>Cliente</code> para avisos y favoritos.</li>
+  <li><b>Variables de build:</b> <code>VITE_AZURE_*</code> y <code>VITE_API_BASE_URL</code> llegan como build-args; <code>VITE_COGNITO_*</code> están en <code>.env.production</code>. Vite las incrusta al compilar.</li>
+  <li><b>Servido:</b> imagen <code>nginx:alpine</code> con el <code>dist/</code> estático y <b>Caddy</b> delante con TLS automático (Let's Encrypt) y dominio DuckDNS.</li>
+</ul>
+<div class="callout">
+  <b>Verificación del bundle desplegado:</b> se descargó el JS de producción y se comprobó que contiene el User Pool, el App client, la URL del API Gateway y la autoridad de Entra. Es decir, el sitio publicado es el que tiene ambas identidades configuradas, no una versión vieja.
+</div>
+</section>
+
+<section class="section">
+<h1 id="s14">14. CI/CD y despliegue</h1>
+<pre><code>push a main (backend/** o frontend-react/**)
+        |
+        v
+GitHub Actions (repo de codigo)
+ |-- backend.yml  : buildx -&gt; Docker Hub (inmobiliaria-service, wishlist-service)
+ `-- frontend.yml : buildx -&gt; Docker Hub (inmobiliarias-frontend)
+        |  repository_dispatch (deploy-backend / deploy-frontend)
+        v
+Repo Inmobiliarias-Infra
+ |-- genera .env con envsubst desde GitHub Secrets
+ |-- scp del docker-compose + .env al EC2
+ `-- SSH: docker compose pull &amp;&amp; up -d
+        |
+        v
+EC2 Backend / EC2 Frontend</code></pre>
+<ul>
+  <li>El workflow de backend <b>falla</b> si <code>kafka</code> o <code>wishlist-service</code> no quedan <code>running</code>: un deploy roto no pasa en verde.</li>
+  <li>API Gateway + Cognito se despliegan aparte con <b>CloudFormation</b> desde CloudShell.</li>
+  <li>Las imágenes son públicas en Docker Hub: los EC2 no necesitan credenciales para descargar.</li>
+  <li>El <code>.env</code> con secretos queda con <code>chmod 600</code> y nunca se versiona.</li>
+</ul>
+</section>
+
+<section class="section">
+<h1 id="s15">15. Seguridad en capas</h1>
+<table>
+  <tr><th>Capa</th><th>Control</th><th>Qué evita</th></tr>
+  <tr><td>Red</td><td>Security Groups: 15672/15673/8025/8080 solo “My IP”; 8081/8082 solo CIDR de la VPC; 22 solo admin</td><td>Exponer paneles o microservicios a internet</td></tr>
+  <tr><td>Red</td><td>VPC Link + NLB internos</td><td>Que el backend sea alcanzable directamente</td></tr>
+  <tr><td>Identidad</td><td>Dos audiences distintos (Entra vs Cognito)</td><td>Usar un token de un IdP en las rutas del otro</td></tr>
+  <tr><td>Identidad</td><td>Scope por ruta</td><td>Aceptar un ID token en lugar del access token</td></tr>
+  <tr><td>Identidad</td><td>Tokens en <code>sessionStorage</code></td><td>Persistencia tras cerrar la pestaña y menor impacto de XSS</td></tr>
+  <tr><td>API</td><td>CORS con origen exacto, sin <code>*</code>, <code>AllowCredentials: false</code></td><td>Que un sitio ajeno use el token del usuario</td></tr>
+  <tr><td>API</td><td><code>overwrite:header.X-User*</code></td><td>Que el navegador falsifique la identidad</td></tr>
+  <tr><td>Aplicación</td><td>Matriz de roles en el interceptor</td><td>Escalada de privilegios</td></tr>
+  <tr><td>Aplicación</td><td><code>autorizacion-requerida: true</code></td><td>Llamar al microservicio saltándose API Gateway</td></tr>
+  <tr><td>Datos</td><td>Consultas filtradas por correo u <code>oid</code></td><td>Que un cliente vea favoritos de otro</td></tr>
+  <tr><td>Datos</td><td><code>@JsonIgnore</code> en la autoría de la propiedad</td><td>Exponer correo corporativo y <code>oid</code> en el catálogo público</td></tr>
+  <tr><td>Secretos</td><td>GitHub Secrets + <code>.env</code> en el EC2 (<code>chmod 600</code>)</td><td>Fuga de credenciales en el repo</td></tr>
+  <tr><td>Proceso</td><td>Change sets revisados antes de aplicar</td><td>Cambios de infraestructura a ciegas</td></tr>
+</table>
+</section>
+
+<section class="section">
+<h1 id="s16">16. Resiliencia y patrones</h1>
+<ul>
+  <li><b>Desacoplamiento asíncrono:</b> el catálogo no espera al wishlist ni a Rabbit; responde rápido.</li>
+  <li><b>Degradación elegante:</b> si Rabbit está caído, el catálogo sigue funcionando; si Kafka falla al publicar una baja, el <code>DELETE</code> igual se completa.</li>
+  <li><b>Reintentos con backoff exponencial</b> (3 intentos, 2 s × 2) y <b>DLQ</b> para no perder mensajes irrecuperables.</li>
+  <li><b>Idempotencia:</b> restricciones únicas y <code>existsBy...</code> evitan duplicar avisos si Kafka reentrega.</li>
+  <li><b>Orden por clave:</b> comuna en altas y bajas, correo en notificaciones.</li>
+  <li><b>Consistencia eventual + polling</b> en la interfaz.</li>
+  <li><b>Healthchecks</b> y <code>restart: unless-stopped</code> en todos los contenedores.</li>
+  <li><b>Transacciones</b> para operaciones compuestas (crear aviso + borrar favorito).</li>
+</ul>
+<div class="callout warn">
+  <b>Limitación honesta:</b> si Kafka está caído en el momento exacto de un alta o baja, el evento de ese instante se pierde (solo queda el error en el log). La mitigación de producción sería el patrón <b>outbox</b> con reintento, o publicar dentro de la misma transacción a una tabla de salida.
+</div>
+</section>
+<section class="section">
+<h1 id="s17">17. Verificación de los 5 riesgos</h1>
+<p>Todo lo de esta sección se ejecutó el <b>17-11-2026</b> contra la API real y el EC2 de backend. No son supuestos: los códigos y conteos son salidas reales.</p>
+
+<h2>17.1 Riesgo 1: transacción pública que expone datos o modifica estado</h2>
+<p><b>Qué exige la rúbrica:</b> lo público debe ser acotado. Se revisó la tabla de rutas del stack y se probaron las 17 rutas relevantes sin token.</p>
+<table>
+  <tr><th>Ruta</th><th>Método</th><th>Sin token</th><th>Lectura</th></tr>
+  <tr><td><code>/api/propiedades</code></td><td>GET</td><td class="ok">200</td><td>Catálogo, público a propósito</td></tr>
+  <tr><td><code>/api/propiedades/3</code></td><td>GET</td><td class="ok">200</td><td>Detalle, público</td></tr>
+  <tr><td><code>/api/wishlist/comunas</code></td><td>GET</td><td class="ok">200</td><td>Solo lista comunas</td></tr>
+  <tr><td><code>/api/propiedades</code></td><td>POST</td><td class="bad">401</td><td>Escritura cerrada</td></tr>
+  <tr><td><code>/api/propiedades/1</code></td><td>PUT</td><td class="bad">401</td><td>Edición cerrada</td></tr>
+  <tr><td><code>/api/propiedades/1</code></td><td>DELETE</td><td class="bad">401</td><td>Baja cerrada</td></tr>
+  <tr><td><code>/api/auditoria</code></td><td>GET</td><td class="bad">401</td><td>Datos internos</td></tr>
+  <tr><td><code>/api/admin/estadisticas</code></td><td>GET</td><td class="bad">401</td><td>Métricas internas</td></tr>
+  <tr><td><code>/api/admin/queues</code> y <code>/exchanges</code></td><td>GET</td><td class="bad">401</td><td>Administración del broker</td></tr>
+  <tr><td><code>/api/cliente/**</code></td><td>GET</td><td class="bad">401</td><td>Datos del cliente</td></tr>
+  <tr><td><code>/api/wishlist/**</code></td><td>GET/POST</td><td class="bad">401</td><td>Datos del staff</td></tr>
+  <tr><td><code>/api/informes/propiedades/pdf</code></td><td>POST</td><td class="bad">401</td><td>Genera correo y PDF</td></tr>
+</table>
+<p><b>Resultado:</b> de 36 rutas declaradas, solo <b>3</b> son <code>AuthorizationType: NONE</code>, y las tres son de lectura. Ninguna escritura es anónima.</p>
+
+<h3>Hallazgo y corrección: fuga de identidad del staff</h3>
+<p>Las dos rutas públicas del catálogo devolvían la entidad completa, incluidos <code>creadoPorEmail</code> y <code>creadoPorOid</code>:</p>
+<pre><code>GET /api/propiedades/3
+{"id":3,
+ "creadoPorEmail":"Corredor@InmobiliariaDuoc.onmicrosoft.com",
+ "creadoPorOid":"0a73de94-2722-4221-836c-bd7f3af16980",
+ "creadoPorNombre":"Corredor", ...}</code></pre>
+<p>Es exactamente “transacción pública que expone datos sensibles”: correo corporativo y <code>objectId</code> de Entra. El frontend no usa esos campos en ninguna parte, así que se ocultaron sin cambiar la API:</p>
+<pre><code>// Propiedad.java
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+@JsonIgnore
+@Column(name = "creado_por_email")
+private String creadoPorEmail;
+
+@JsonIgnore
+@Column(name = "creado_por_oid")
+private String creadoPorOid;</code></pre>
+<p>Se agregó el test <code>elCatalogoPublicoNoExponeLaIdentidadDelStaff</code> en <code>PropiedadControllerIT</code>, que falla si el JSON vuelve a incluir esos campos. Resultado: <b>7/7 tests en verde</b>. El PDF del informe y los eventos Kafka no se ven afectados porque leen la entidad por getters o usan otro DTO.</p>
+<div class="callout ok">
+  <b>Verificación después del despliegue:</b> <code>curl -s $API/api/propiedades/3 | grep -c creadoPorEmail</code> debe imprimir <b>0</b>.
+</div>
+
+<h2>17.2 Riesgo 2: usuario público llamando funciones de Admin</h2>
+<p>Se probó en dos capas. Primero por API Gateway, sin token y con cabeceras falsificadas:</p>
+<pre><code>DELETE /api/propiedades/999999  con X-User y X-User-Rol falsos  -&gt; 401
+GET    /api/auditoria           con X-User y X-User-Rol falsos  -&gt; 401
+GET    /api/admin/estadisticas  con X-User y X-User-Rol falsos  -&gt; 401</code></pre>
+<p>Luego <b>contra el backend directamente</b> (sin API Gateway), que es donde vive la autorización:</p>
+<table>
+  <tr><th>Petición</th><th>Resultado</th><th>Por qué</th></tr>
+  <tr><td><code>GET /api/propiedades</code> sin identidad</td><td class="ok">200</td><td>Catálogo público</td></tr>
+  <tr><td><code>DELETE /api/propiedades/999999</code> sin identidad</td><td class="bad">403</td><td><code>autorizacion-requerida: true</code></td></tr>
+  <tr><td><code>POST /api/propiedades</code> con rol PUBLIC</td><td class="bad">403</td><td>No tiene permiso de escritura</td></tr>
+  <tr><td><code>PUT /api/propiedades/3</code> con rol CORREDOR</td><td class="bad">403</td><td>El corredor no edita</td></tr>
+  <tr><td><code>DELETE /api/propiedades/999999</code> con rol CORREDOR</td><td class="ok">404</td><td>Permitido; la propiedad no existe</td></tr>
+  <tr><td><code>GET /api/auditoria</code> con rol CORREDOR</td><td class="bad">403</td><td>Solo ADMIN</td></tr>
+  <tr><td><code>GET /api/admin/queues</code> con rol CORREDOR</td><td class="bad">403</td><td>Solo ADMIN</td></tr>
+  <tr><td><code>GET /api/auditoria</code> con rol ADMIN</td><td class="ok">200</td><td>Permitido</td></tr>
+  <tr><td><code>GET /api/cliente/perfil</code> con rol ADMIN (Entra)</td><td class="bad">403</td><td><code>/api/cliente</code> es solo CLIENTE</td></tr>
+  <tr><td><code>GET /api/cliente/perfil</code> con rol CLIENTE</td><td class="ok">200</td><td>Permitido</td></tr>
+  <tr><td><code>GET /api/admin/estadisticas</code> con rol CLIENTE</td><td class="bad">403</td><td>Solo ADMIN</td></tr>
+</table>
+<p><b>Conclusión:</b> el rol no se toma del navegador ni de un campo editable: se resuelve comparando el correo o el <code>oid</code> con la configuración del backend. Un usuario Entra válido sin coincidencia queda como <code>PUBLIC</code> y <b>solo puede leer el catálogo</b>.</p>
+
+<h2>17.3 Riesgo 3: rutas incoherentes entre frontend y API Gateway</h2>
+<p>Se extrajeron automáticamente todas las llamadas de <code>apiClient.js</code> y <code>apiCliente.js</code> y se contrastaron con los 36 <code>RouteKey</code> del stack: <b>26 combinaciones método+ruta, 26 existen, 0 faltantes</b>.</p>
+<p>Además se comprobó el comportamiento en los tres casos que confunden:</p>
+<table>
+  <tr><th>Prueba</th><th>Resultado</th><th>Lectura</th></tr>
+  <tr><td><code>OPTIONS</code> con origen permitido</td><td class="ok">204 + <code>allow-origin</code> exacto</td><td>El preflight funciona</td></tr>
+  <tr><td><code>OPTIONS</code> con origen ajeno</td><td class="warn">204 sin <code>allow-origin</code></td><td>El navegador lo bloquea</td></tr>
+  <tr><td><code>GET /api/auditoria</code> sin token</td><td class="ok">401 + <code>allow-origin</code></td><td>Ruta existente y protegida</td></tr>
+  <tr><td><code>GET /api/no-existe</code></td><td class="warn">404 sin CORS</td><td>Ruta inexistente (este era el síntoma del bug de avisos)</td></tr>
+</table>
+<p>También se descargó el bundle de producción y se verificó que contiene <code>us-east-1_VOjUlX3N7</code>, <code>5c7ke1lrusghqkkio0682f6qvb</code>, <code>qe8w2nla3a.execute-api</code> y <code>login.microsoftonline.com</code>.</p>
+
+<h2>17.4 Riesgo 4: Kafka levanta pero nadie produce ni consume</h2>
+<table>
+  <tr><th>Topic</th><th>Mensajes</th><th>DLQ</th></tr>
+  <tr><td><code>propiedades-nuevas</code></td><td>21</td><td>0</td></tr>
+  <tr><td><code>propiedades-eliminadas</code></td><td>2</td><td>0</td></tr>
+  <tr><td><code>notificaciones-sistema</code></td><td>11</td><td>0</td></tr>
+</table>
+<table>
+  <tr><th>Grupo</th><th>Particiones (current-offset)</th><th>Lag</th></tr>
+  <tr><td><code>wishlist-notifier-group</code></td><td>20 / 1 / 0</td><td class="ok">0</td></tr>
+  <tr><td><code>wishlist-bajas-group</code></td><td>1 / 0 / 1</td><td class="ok">0</td></tr>
+  <tr><td><code>notificaciones-dispatch-group</code></td><td>0 / 4 / 5 / 2</td><td class="ok">0</td></tr>
+</table>
+<p>La prueba definitiva no es el offset sino el <b>efecto en la base</b>: <code>wishlist_novedades</code> tenía <b>23 filas</b> (última ese mismo día a las 10:12), <code>wishlist_novedades_resumen</code> <b>3 filas</b> y <b>3 correos enviados</b>. Es decir, los consumidores procesaron eventos reales generados por altas reales.</p>
+<p>También se leyó un evento del topic con su contenido:</p>
+<pre><code>CreateTime: 1794292482136   Key: Quillota
+{"propiedadId":4,"titulo":"Casa en quillota","categoria":"Casa",
+ "tipoOperacion":"Arriendo","comuna":"Quillota",
+ "creadoPorEmail":"Administrador@InmobiliariaDuoc.onmicrosoft.com", ...}</code></pre>
+<p><b>Las transacciones públicas no generan eventos porque son de lectura.</b> Las que escriben (POST y DELETE) son autenticadas y sí publican. Un evento de baja real quedó en <code>propiedades-eliminadas</code> con <code>propiedadId 999999</code>, de la prueba E2E.</p>
+
+<h2>17.5 Riesgo 5: login/JWT roto tras agregar Cognito</h2>
+<table>
+  <tr><th>Prueba</th><th>Esperado</th><th>Real</th><th>Lectura</th></tr>
+  <tr><td>Access token Cognito → <code>/api/cliente/perfil</code></td><td>200</td><td class="ok">200</td><td>Login de clientes operativo</td></tr>
+  <tr><td>Access token Cognito → <code>/api/admin/estadisticas</code></td><td>401</td><td class="ok">401</td><td>Audiencia/emisor de Entra; no llega al backend</td></tr>
+  <tr><td>Access token Cognito → <code>/api/me</code></td><td>401</td><td class="ok">401</td><td>Rutas de staff cerradas</td></tr>
+  <tr><td>Access token Cognito → <code>/api/wishlist/favoritos</code></td><td>401</td><td class="ok">401</td><td>Ídem</td></tr>
+  <tr><td>ID token Cognito → <code>/api/cliente/perfil</code></td><td>403</td><td class="ok">403</td><td>Falta el scope, que solo está en el access token</td></tr>
+</table>
+<div class="callout">
+  <b>Por qué el ID token da 403 y no 401:</b> comparte <code>iss</code> y <code>aud</code> con el access token, así que el authorizer lo considera válido; lo rechaza la comprobación de <b>scope</b>. El cuerpo es <code>{"message":"Forbidden"}</code> de API Gateway, distinto del <code>{"error":"..."}</code> del backend.
+</div>
+<p>Se verificó además que las cabeceras falsas no sirven, que el backend en producción exige identidad (<code>autorizacion-requerida: true</code>) y que el bundle desplegado tiene ambos IdP configurados. Los errores de sesión de Cognito (<code>Storage: userPool.storage</code>) ya están corregidos en el código desplegado.</p>
+
+<h2>17.6 Resultado global</h2>
+<table>
+  <tr><th>Riesgo</th><th>Veredicto</th></tr>
+  <tr><td>1. Público acotado y sin datos sensibles</td><td><span class="ok">Corregido y con test de regresión</span></td></tr>
+  <tr><td>2. Público llamando Admin</td><td><span class="ok">No ocurre</span></td></tr>
+  <tr><td>3. Coherencia frontend / API Gateway</td><td><span class="ok">26/26 rutas</span></td></tr>
+  <tr><td>4. Kafka vacío</td><td><span class="ok">Productores y consumidores reales</span></td></tr>
+  <tr><td>5. Login/JWT roto</td><td><span class="ok">Ambos IdP operativos y aislados</span></td></tr>
+</table>
+</section>
+<section class="section">
+<h1 id="s18">18. Guion de presentación: 10 pruebas que demuestran que no falla</h1>
+<p>Este guion está pensado para una demo de <b>12 a 15 minutos</b>. Cada acto tiene un objetivo, el comando exacto, la salida esperada y una frase corta para decir. Si algo falla por red, existe un plan B al final.</p>
+
+<h2>18.0 Preparación (hacer 10 minutos antes)</h2>
+<table>
+  <tr><th>#</th><th>Verificación</th><th>Cómo</th></tr>
+  <tr><td>1</td><td>Contenedores arriba</td><td><code>ssh -i llaves_backen_inmobiliarias.pem ec2-user@54.88.89.184 "sudo docker ps"</code></td></tr>
+  <tr><td>2</td><td>Sitio responde</td><td>Abrir <code>https://inmobiliariasduoc.duckdns.org</code></td></tr>
+  <tr><td>3</td><td>API responde</td><td><code>curl -s -o /dev/null -w '%{http_code}' $API/api/propiedades</code> → 200</td></tr>
+  <tr><td>4</td><td>Sesión de admin</td><td>Login con la cuenta administrador en una ventana normal</td></tr>
+  <tr><td>5</td><td>Sesión de cliente</td><td>Login con una cuenta Cognito en una ventana incógnita</td></tr>
+  <tr><td>6</td><td>Pestañas listas</td><td>MailHog <code>:8025</code> y RabbitMQ <code>:15672</code></td></tr>
+  <tr><td>7</td><td>Token de Cognito</td><td>Ejecutar el bloque del Acto 8 y dejar <code>$T</code> en la sesión</td></tr>
+</table>
+<pre><code># Variables para toda la demo (CloudShell o Git Bash)
+API=https://qe8w2nla3a.execute-api.us-east-1.amazonaws.com
+POOL=us-east-1_VOjUlX3N7
+CLIENT=5c7ke1lrusghqkkio0682f6qvb</code></pre>
+
+<h2>Mapa de la rúbrica a los actos</h2>
+<table>
+  <tr><th>Riesgo de la rúbrica</th><th>Acto</th></tr>
+  <tr><td>Transacción pública acotada</td><td>1, 2 y 10</td></tr>
+  <tr><td>Público llamando funciones de Admin</td><td>3, 4 y 8</td></tr>
+  <tr><td>Rutas incoherentes frontend / API Gateway</td><td>5</td></tr>
+  <tr><td>Kafka vacío o sin eventos</td><td>6 y 9</td></tr>
+  <tr><td>Login/JWT roto tras Cognito</td><td>8</td></tr>
+</table>
+
+<h2 id="acto1">Acto 1 · El catálogo es público (y solo lectura)</h2>
+<p><b>Objetivo:</b> mostrar que un visitante ve el catálogo sin cuenta.</p>
+<ol>
+  <li>Abrir el sitio en una ventana incógnita (sin sesión).</li>
+  <li>Mostrar las propiedades cargadas y el buscador por comuna.</li>
+  <li>En CloudShell:</li>
+</ol>
+<pre><code>curl -s -o /dev/null -w 'catalogo: %{http_code}\n' $API/api/propiedades
+curl -s -o /dev/null -w 'detalle : %{http_code}\n' $API/api/propiedades/3
+curl -s -o /dev/null -w 'comunas : %{http_code}\n' $API/api/wishlist/comunas</code></pre>
+<p><b>Salida esperada:</b> <code>200</code>, <code>200</code>, <code>200</code>.</p>
+<blockquote><b>Qué decir:</b> “El catálogo es público a propósito, porque la portada se ve sin iniciar sesión. Son las únicas tres rutas sin autenticación de las 36 del API Gateway, y las tres son de lectura.”</blockquote>
+
+<h2 id="acto2">Acto 2 · Lo público está acotado: ninguna escritura es anónima</h2>
+<p><b>Objetivo:</b> demostrar que sin token no se puede crear, editar, borrar ni ver datos internos.</p>
+<pre><code>for r in /api/auditoria /api/me /api/admin/estadisticas /api/admin/queues \
+         /api/cliente/perfil /api/cliente/favoritos /api/wishlist/favoritos; do
+  printf '%-32s %s\n' "$r" "$(curl -s -o /dev/null -w '%{http_code}' $API$r)"
+done
+
+printf '%-32s %s\n' 'POST /api/propiedades' \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X POST $API/api/propiedades)"
+printf '%-32s %s\n' 'PUT /api/propiedades/1' \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X PUT $API/api/propiedades/1)"
+printf '%-32s %s\n' 'DELETE /api/propiedades/1' \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE $API/api/propiedades/1)"
+printf '%-32s %s\n' 'POST /api/informes/propiedades/pdf' \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X POST $API/api/informes/propiedades/pdf)"</code></pre>
+<p><b>Salida esperada:</b> todos <code>401</code>, salvo las tres rutas del Acto 1.</p>
+<blockquote><b>Qué decir:</b> “De 36 rutas, solo 3 son públicas y ninguna permite modificar estado. Cualquier intento de escritura sin token muere en API Gateway con 401.”</blockquote>
+
+<h2 id="acto3">Acto 3 · La identidad no se puede falsificar con cabeceras</h2>
+<p><b>Objetivo:</b> anticipar la pregunta “¿y si mando <code>X-User: admin</code>?”.</p>
+<pre><code>curl -s -o /dev/null -w 'DELETE con cabeceras falsas: %{http_code}\n' \
+  -X DELETE \
+  -H 'X-User: administrador@inmobiliariaduoc.onmicrosoft.com' \
+  -H 'X-User-Rol: ADMIN' \
+  $API/api/propiedades/999999
+
+curl -s -o /dev/null -w 'auditoria con cabeceras falsas: %{http_code}\n' \
+  -H 'X-User: administrador@inmobiliariaduoc.onmicrosoft.com' \
+  -H 'X-User-Rol: ADMIN' \
+  $API/api/auditoria</code></pre>
+<p><b>Salida esperada:</b> <code>401</code> y <code>401</code>.</p>
+<blockquote><b>Qué decir:</b> “API Gateway escribe esas cabeceras con acción <i>overwrite</i> después de validar el token. Lo que mande el navegador se descarta, y si no hay token válido la petición ni llega al backend.”</blockquote>
+
+<h2 id="acto4">Acto 4 · Los roles se aplican en el backend (no en el navegador)</h2>
+<p><b>Objetivo:</b> probar la matriz de permisos <b>saltándose API Gateway</b>. Se ejecuta dentro del EC2, contra <code>localhost:8081</code> y <code>:8082</code>.</p>
+<pre><code>ssh -i llaves_backen_inmobiliarias.pem ec2-user@54.88.89.184
+
+# Ya dentro del EC2:
+req() { local l="$1"; shift; printf '%-56s %s\n' "$l" \
+  "$(curl -s -o /dev/null -w '%{http_code}' "$@")"; }
+B1=http://localhost:8081; B2=http://localhost:8082
+J='Content-Type: application/json'
+COR='X-User: Corredor@InmobiliariaDuoc.onmicrosoft.com'
+ADM='X-User: administrador@inmobiliariaduoc.onmicrosoft.com'
+
+req 'GET catalogo sin identidad'                 $B1/api/propiedades
+req 'DELETE sin identidad'                       -X DELETE $B1/api/propiedades/999999
+req 'POST con rol PUBLIC'                        -X POST -H 'X-User: alumno@duoc.cl' -H 'X-User-Rol: PUBLIC' -H "$J" -d '{}' $B1/api/propiedades
+req 'PUT con rol CORREDOR'                       -X PUT -H "$COR" -H 'X-User-Rol: CORREDOR' -H "$J" -d '{}' $B1/api/propiedades/3
+req 'DELETE con rol CORREDOR (no existe)'        -X DELETE -H "$COR" -H 'X-User-Rol: CORREDOR' $B1/api/propiedades/999999
+req 'auditoria con rol CORREDOR'                 -H "$COR" -H 'X-User-Rol: CORREDOR' $B1/api/auditoria
+req 'admin/queues con rol CORREDOR'              -H "$COR" -H 'X-User-Rol: CORREDOR' $B1/api/admin/queues
+req 'auditoria con rol ADMIN'                    -H "$ADM" -H 'X-User-Rol: ADMIN' $B1/api/auditoria
+req 'cliente/perfil con rol ADMIN'               -H "$ADM" -H 'X-User-Rol: ADMIN' $B2/api/cliente/perfil
+req 'cliente/perfil con rol CLIENTE'             -H 'X-User: cliente@prueba.cl' -H 'X-User-Rol: CLIENTE' $B2/api/cliente/perfil</code></pre>
+<p><b>Salida esperada:</b> <code>200, 403, 403, 403, 404, 403, 403, 200, 403, 200</code>.</p>
+<div class="callout">
+  <b>Cómo leerlo:</b> el <code>404</code> del corredor es un <b>permiso concedido</b> (puede borrar, pero esa propiedad no existe). El <code>403</code> del PUT es la regla “el corredor no edita”. El <code>200</code> de auditoría con ADMIN confirma que el camino feliz también funciona.
+</div>
+<blockquote><b>Qué decir:</b> “Ocultar botones es solo experiencia de usuario. La decisión real está en el interceptor del microservicio, y aquí se ve funcionando incluso sin API Gateway.”</blockquote>
+
+<h2 id="acto5">Acto 5 · Frontend y API Gateway hablan el mismo idioma</h2>
+<p><b>Objetivo:</b> demostrar que no hay rutas “de verdad” en el frontend que estén abiertas o inexistentes en el gateway.</p>
+<ol>
+  <li>Contar rutas en la plantilla:</li>
+</ol>
+<pre><code>grep -c 'RouteKey:' backend/aws/api-gateway.yaml
+grep -c 'AuthorizationType: NONE' backend/aws/api-gateway.yaml</code></pre>
+<p><b>Salida esperada:</b> <code>36</code> y <code>3</code>.</p>
+<ol start="2">
+  <li>Probar el preflight y los dos contrastes:</li>
+</ol>
+<pre><code># Preflight desde el origen permitido
+curl -s -D - -o /dev/null -X OPTIONS \
+  -H 'Origin: https://inmobiliariasduoc.duckdns.org' \
+  -H 'Access-Control-Request-Method: DELETE' \
+  $API/api/propiedades | grep -i 'access-control'
+
+# Ruta privada existente: 401 CON CORS
+curl -s -D - -o /dev/null -H 'Origin: https://inmobiliariasduoc.duckdns.org' \
+  $API/api/auditoria | grep -iE 'HTTP/|access-control'
+
+# Ruta inexistente: 404 SIN CORS
+curl -s -D - -o /dev/null -H 'Origin: https://inmobiliariasduoc.duckdns.org' \
+  $API/api/no-existe | grep -iE 'HTTP/|access-control'</code></pre>
+<p><b>Salida esperada:</b> preflight <code>204</code> con <code>access-control-allow-origin</code>; ruta privada <code>401</code> con CORS; ruta inexistente <code>404</code> sin CORS.</p>
+<blockquote><b>Qué decir:</b> “Cuando una ruta no existe, API Gateway responde 404 sin CORS y el navegador culpa a CORS. Ese fue el bug de los avisos: faltaban dos rutas. Ahora las 26 combinaciones que usa el frontend existen en el stack.”</blockquote>
+</section>
+<section class="section">
+<h2 id="acto6">Acto 6 · Kafka produce y consume de verdad</h2>
+<p><b>Objetivo:</b> responder a “Kafka levanta pero nadie produce/consume”.</p>
+<ol>
+  <li>Entrar al EC2 y describir los grupos:</li>
+</ol>
+<pre><code>ssh -i llaves_backen_inmobiliarias.pem ec2-user@54.88.89.184
+
+sudo docker exec inmobiliarias-kafka /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 --describe --group wishlist-notifier-group
+
+sudo docker exec inmobiliarias-kafka /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 --describe --group wishlist-bajas-group
+
+sudo docker exec inmobiliarias-kafka /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 --describe --group notificaciones-dispatch-group</code></pre>
+<p><b>Salida esperada:</b> columnas <code>CURRENT-OFFSET</code>, <code>LOG-END-OFFSET</code> y <code>LAG</code>. El <code>LAG</code> debe ser <b>0</b> y los offsets mayores que 0 en al menos una partición.</p>
+<ol start="2">
+  <li>Contar mensajes por topic:</li>
+</ol>
+<pre><code>sudo docker exec inmobiliarias-kafka /opt/kafka/bin/kafka-get-offsets.sh \
+  --bootstrap-server localhost:9092 | awk -F: '{a[$1]+=$3} END {for (t in a) printf "%-30s %s\n", t, a[t]}' | sort</code></pre>
+<p><b>Salida real del 17-11:</b> <code>propiedades-nuevas 21</code>, <code>propiedades-eliminadas 2</code>, <code>notificaciones-sistema 11</code>, todas las DLQ en 0.</p>
+<ol start="3">
+  <li><b>Prueba en vivo:</b> en el panel de Admin, crear una propiedad en una comuna que el cliente siga (por ejemplo, Quillota). Volver a ejecutar el <code>--describe</code> del grupo <code>wishlist-notifier-group</code>.</li>
+</ol>
+<p><b>Qué mirar:</b> el <code>CURRENT-OFFSET</code> de la partición correspondiente sube y el <code>LAG</code> vuelve a 0 en segundos. Eso prueba productor + consumidor en el mismo acto.</p>
+<ol start="4">
+  <li>Ver el efecto en la base:</li>
+</ol>
+<pre><code>sudo docker exec inmobiliarias-db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "select count(*) as novedades from wishlist_novedades;
+      select count(*) as resumenes, count(*) filter (where correo_enviado) as enviados
+        from wishlist_novedades_resumen;"</code></pre>
+<p><b>Salida real:</b> 23 novedades, 3 resúmenes, 3 correos enviados.</p>
+<blockquote><b>Qué decir:</b> “No basta con que el contenedor esté arriba. Aquí hay 21 eventos de altas y 2 de bajas consumidos con lag 0, y el efecto está en la base: 23 novedades y 3 correos. Además, las transacciones públicas son de lectura, por eso no generan eventos; las que escriben son autenticadas y sí publican.”</blockquote>
+
+<h2 id="acto7">Acto 7 · RabbitMQ: 4 colas exactas y un informe real</h2>
+<p><b>Objetivo:</b> demostrar la topología exigida (2 colas de trabajo + 2 DLQ) y el flujo asíncrono.</p>
+<ol>
+  <li>Listar colas y consumidores:</li>
+</ol>
+<pre><code>sudo docker exec inmobiliarias-rabbitmq rabbitmqctl list_queues name messages consumers</code></pre>
+<p><b>Salida esperada:</b> exactamente cuatro colas, con <b>1 consumidor</b> en las dos de trabajo y <b>0</b> en las DLQ.</p>
+<pre><code>cola.correos.notificaciones       0  1
+cola.correos.notificaciones.dlq   0  0
+cola.pdf.procesamiento            0  1
+cola.pdf.procesamiento.dlq        0  0</code></pre>
+<ol start="2">
+  <li>En el panel de Admin, pulsar <b>“Descargar Informe PDF”</b>. El backend responde <b>202 Accepted</b>.</li>
+  <li>Mostrar el correo en <b>MailHog</b> (<code>http://54.88.89.184:8025</code>): llega el aviso “tu informe se está procesando” y luego el PDF adjunto.</li>
+  <li>Ver el archivo generado:</li>
+</ol>
+<pre><code>sudo docker exec inmobiliaria-service ls -l /app/informes</code></pre>
+<blockquote><b>Qué decir:</b> “El informe no se genera en la request: se publican dos mensajes, uno al fanout para avisar y otro al direct para el trabajo real. El 202 es correcto porque el trabajo todavía no terminó.”</blockquote>
+
+<h2 id="acto8">Acto 8 · Login y JWT: Entra y Cognito conviven sin romperse</h2>
+<p><b>Objetivo:</b> demostrar que agregar Cognito no rompió el login del staff y que los tokens no se pueden mezclar.</p>
+<h3>Parte A: token de cliente (Cognito) en CloudShell</h3>
+<pre><code>API=https://qe8w2nla3a.execute-api.us-east-1.amazonaws.com
+POOL=us-east-1_VOjUlX3N7
+CLIENT=5c7ke1lrusghqkkio0682f6qvb
+EMAIL=prueba.rubrica@example.com
+PASS='PruebaDuoc2026!'
+
+aws cognito-idp admin-create-user --user-pool-id $POOL --username $EMAIL \
+  --message-action SUPPRESS \
+  --user-attributes Name=email,Value=$EMAIL Name=email_verified,Value=true
+
+aws cognito-idp admin-set-user-password --user-pool-id $POOL --username $EMAIL \
+  --password "$PASS" --permanent
+
+T=$(aws cognito-idp initiate-auth --auth-flow USER_PASSWORD_AUTH --client-id $CLIENT \
+  --auth-parameters USERNAME=$EMAIL,PASSWORD="$PASS" \
+  --query 'AuthenticationResult.AccessToken' --output text)
+
+ID=$(aws cognito-idp initiate-auth --auth-flow USER_PASSWORD_AUTH --client-id $CLIENT \
+  --auth-parameters USERNAME=$EMAIL,PASSWORD="$PASS" \
+  --query 'AuthenticationResult.IdToken' --output text)
+
+for r in cliente/perfil admin/estadisticas me wishlist/favoritos; do
+  printf '%-22s %s\n' $r \
+    "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $T" $API/api/$r)"
+done
+
+printf '%-22s %s\n' 'ID token' \
+  "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $ID" $API/api/cliente/perfil)"</code></pre>
+<p><b>Salida real del 17-11:</b></p>
+<pre><code>cliente/perfil         200
+admin/estadisticas     401
+me                     401
+wishlist/favoritos     401
+ID token               403</code></pre>
+<div class="callout">
+  <b>Qué significa cada uno:</b> el 200 prueba que el login de clientes funciona. Los 401 prueban que un token de Cognito no sirve en rutas de Entra. El 403 del ID token prueba que el scope <code>aws.cognito.signin.user.admin</code> impide usar el token equivocado.
+</div>
+<p><b>Limpieza (opcional, después de la demo):</b></p>
+<pre><code>aws cognito-idp admin-delete-user --user-pool-id $POOL --username $EMAIL</code></pre>
+
+<h3>Parte B: token de staff (Entra)</h3>
+<ol>
+  <li>Iniciar sesión en el sitio con una cuenta Entra <b>sin rol</b> (por ejemplo, un invitado).</li>
+  <li>DevTools → Network → cualquier llamada a <code>execute-api</code> → copiar el valor de <code>Authorization: Bearer ...</code>.</li>
+  <li>Ejecutar:</li>
+</ol>
+<pre><code>ENTRA='pegar-el-token-aqui'
+
+curl -s -o /dev/null -w 'me:        %{http_code}\n' -H "Authorization: Bearer $ENTRA" $API/api/me
+curl -s -o /dev/null -w 'auditoria: %{http_code}\n' -H "Authorization: Bearer $ENTRA" $API/api/auditoria
+curl -s -o /dev/null -w 'dashboard: %{http_code}\n' -H "Authorization: Bearer $ENTRA" $API/api/admin/estadisticas
+curl -s -o /dev/null -w 'crear:     %{http_code}\n' -X POST \
+  -H "Authorization: Bearer $ENTRA" -H 'Content-Type: application/json' \
+  -d '{}' $API/api/propiedades</code></pre>
+<p><b>Salida esperada:</b> <code>200</code>, <code>403</code>, <code>403</code>, <code>403</code>. El 200 de <code>/api/me</code> devuelve <code>rol: PUBLIC</code>.</p>
+<blockquote><b>Qué decir:</b> “Un usuario registrado en el directorio pero sin rol es PUBLIC: entra al catálogo, pero el backend le responde 403 en todo lo demás. El rol no viaja desde el navegador; se resuelve comparando el correo o el objectId.”</blockquote>
+
+<h2 id="acto9">Acto 9 · Aviso de baja: Kafka cambia lo que ve el cliente</h2>
+<p><b>Objetivo:</b> demostrar el flujo asíncrono completo con efecto visible en la interfaz.</p>
+<ol>
+  <li>Como <b>admin</b>, crear una propiedad llamada “Demo presentación” en la comuna que el cliente sigue (por ejemplo, Quillota) y anotar su id.</li>
+  <li>Como <b>cliente</b> (ventana incógnita), abrir esa propiedad y guardarla en <b>favoritos</b>.</li>
+  <li>Como <b>admin</b>, eliminar la propiedad.</li>
+  <li>Volver a la ventana del cliente y esperar hasta <b>15 segundos</b> (el sondeo).</li>
+</ol>
+<p><b>Qué debe pasar:</b> el favorito desaparece y aparece una alerta destacada con el texto “ya fue vendida” o “ya fue arrendada” (según <code>tipoOperacion</code>) y “se eliminó automáticamente de tus favoritos”. El botón “Entendido” borra el aviso.</p>
+<ol start="5">
+  <li>Confirmar el consumo del evento de baja:</li>
+</ol>
+<pre><code>sudo docker exec inmobiliarias-kafka /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 --describe --group wishlist-bajas-group
+
+sudo docker exec inmobiliarias-db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "select usuario_email, propiedad_id, mensaje from wishlist_avisos order by id desc limit 3;"</code></pre>
+<p><b>Salida esperada:</b> el offset de <code>propiedades-eliminadas</code> sube, el <code>LAG</code> queda en 0 y aparece una fila en <code>wishlist_avisos</code>.</p>
+<blockquote><b>Qué decir:</b> “La baja no espera a Kafka: el DELETE termina igual. El evento viaja por <code>propiedades-eliminadas</code>, el wishlist borra el favorito y crea el aviso en una sola transacción, y el polling de 15 segundos lo refleja en pantalla. Es consistencia eventual, no un fallo.”</blockquote>
+
+<h2 id="acto10">Acto 10 · El catálogo público ya no expone datos internos</h2>
+<p><b>Objetivo:</b> cerrar el único hallazgo real de la revisión.</p>
+<pre><code>curl -s $API/api/propiedades/3 | grep -c creadoPorEmail
+curl -s $API/api/propiedades/3 | grep -c creadoPorOid
+curl -s $API/api/propiedades/3</code></pre>
+<p><b>Salida esperada:</b> <code>0</code>, <code>0</code> y un JSON con los datos de la propiedad, <b>sin</b> la autoría interna.</p>
+<p>Mostrar también el respaldo en código y en tests:</p>
+<pre><code>grep -n 'JsonIgnore' -A2 backend/inmobiliaria-service/src/main/java/cl/inmobiliarias/service/model/Propiedad.java
+grep -n 'elCatalogoPublicoNoExponeLaIdentidadDelStaff' -A6 \
+  backend/inmobiliaria-service/src/test/java/cl/inmobiliarias/service/controller/PropiedadControllerIT.java</code></pre>
+<blockquote><b>Qué decir:</b> “Detectamos que el catálogo público devolvía el correo corporativo y el objectId de Entra. Se ocultaron con <code>@JsonIgnore</code> y se agregó un test que falla si vuelven a aparecer. El informe PDF y los eventos Kafka no se afectan porque usan los getters o un DTO distinto.”</blockquote>
+
+<h2>Plan B si falla la red o un servicio</h2>
+<ul>
+  <li>Tener <b>capturas</b> de: salida de los 17 códigos, <code>--describe</code> de Kafka, <code>list_queues</code>, y la tabla de 200/401/401/401/403.</li>
+  <li>Si Kafka está caído: mostrar los offsets y las 23 novedades ya persistidas; explicar que la demo en vivo requiere el broker.</li>
+  <li>Si Rabbit está caído: mostrar el correo y el PDF ya generados en MailHog y <code>/app/informes</code>.</li>
+  <li>Si el token de Entra expiró: volver a iniciar sesión (dura ~1 hora).</li>
+</ul>
+
+<h2>Frases clave para la defensa</h2>
+<table>
+  <tr><th>Situación</th><th>Frase</th></tr>
+  <tr><td>¿Por qué dos IdP?</td><td>“Staff y clientes son públicos distintos: uno se gobierna en el directorio corporativo y el otro se autoregistra.”</td></tr>
+  <tr><td>¿Por qué API Gateway valida y el backend autoriza?</td><td>“La criptografía es infraestructura; los roles del negocio son dominio. Además API Gateway no devuelve un 403 con cuerpo propio.”</td></tr>
+  <tr><td>¿Por qué el ID token no sirve?</td><td>“Comparte issuer y audiencia, pero no tiene el scope; por eso API Gateway lo rechaza con 403.”</td></tr>
+  <tr><td>¿Por qué Kafka y Rabbit?</td><td>“Kafka para eventos con relectura y particiones; Rabbit para tareas puntuales con ACK y DLQ.”</td></tr>
+  <tr><td>¿Qué pasa si Kafka está caído?</td><td>“La escritura se completa; se pierde el evento de ese instante. En producción se mitiga con outbox.”</td></tr>
+  <tr><td>¿Cómo evitas avisos duplicados?</td><td>“Restricción única <code>(usuario_email, propiedad_id)</code> y verificación previa, porque Kafka es at-least-once.”</td></tr>
+</table>
+</section>
+<section class="section">
+<h1 id="s19">19. Preguntas de defensa</h1>
+
+<h3>¿Por qué dos proveedores de identidad?</h3>
+<p>Porque los públicos son distintos. Los empleados ya existen en el directorio corporativo (Entra ID, con gobierno de cuentas y bajas centralizadas); los clientes deben autoregistrarse sin intervención. Mezclarlos obligaría a crear cuentas corporativas para clientes o a implementar registro y recuperación de contraseña propios.</p>
+
+<h3>¿Por qué API Gateway valida el token y el microservicio autoriza?</h3>
+<p>Separación de responsabilidades. La validación criptográfica (firma, JWKS, <code>exp</code>, <code>iss</code>, <code>aud</code>) es infraestructura y API Gateway la hace sin Lambda. Los roles del negocio son dominio y cambian con las reglas de la empresa. Además, API Gateway no puede devolver un 403 con un cuerpo JSON propio.</p>
+
+<h3>¿Qué diferencia hay entre access token e ID token?</h3>
+<p>El access token es la credencial para la API: lleva <code>scope</code> y <code>aud</code> de la API. El ID token describe al usuario para la aplicación. Aquí las rutas exigen un scope que solo está en el access token, justamente para rechazar el ID token.</p>
+
+<h3>¿Por qué el scope <code>aws.cognito.signin.user.admin</code>?</h3>
+<p>Porque es el claim que distingue el access token del ID token en Cognito. Sin esa línea, el authorizer aceptaría ambos, ya que comparten issuer y audiencia. Con la línea, el ID token recibe 403.</p>
+
+<h3>¿Qué pasa si Kafka está caído?</h3>
+<p>El alta o la baja se completa igual: la publicación es asíncrona y el error solo queda en el log. Se pierde el evento de ese instante; las novedades o avisos de ese cambio no se generan hasta que se reprocese. Para producción se mitigaría con el patrón <b>outbox</b> y reintento.</p>
+
+<h3>¿Qué pasa si RabbitMQ está caído?</h3>
+<p>El catálogo y las rutas siguen funcionando. La solicitud de informe falla al publicar y el <code>RabbitTemplate</code> reintenta la conexión. El contenedor arranca igual porque el <code>depends_on</code> usa <code>service_started</code>, no <code>service_healthy</code>.</p>
+
+<h3>¿Por qué una DLQ y no reintentar infinito?</h3>
+<p>Un mensaje “veneno” bloquearía la cola o la partición. Con reintentos acotados y DLQ se preserva el mensaje para análisis y el sistema sigue fluyendo. En Rabbit la DLQ expira a los 10 minutos para no acumular basura.</p>
+
+<h3>¿Cómo evitas avisos duplicados si Kafka reentrega?</h3>
+<p>Con una restricción única <code>(usuario_email, propiedad_id)</code> en <code>wishlist_avisos</code> y una verificación <code>existsBy...</code> antes de insertar. Además, la creación del aviso y el borrado del favorito ocurren en una sola transacción.</p>
+
+<h3>¿Por qué el favorito tarda hasta 15 segundos en desaparecer?</h3>
+<p>Porque la baja es asíncrona (Kafka) y la interfaz sondea cada 15 segundos. El backend queda consistente en milisegundos; el retraso es solo de presentación. Se podría sustituir el polling por SSE o WebSocket.</p>
+
+<h3>¿Por qué el texto dice “vendida” o “arrendada”?</h3>
+<p>Se usa <code>tipoOperacion</code> de la propiedad. Si es <code>Venta</code> dice “ya fue vendida”; si es <code>Arriendo</code>, “ya fue arrendada”; cualquier otro valor usa el genérico “ya fue vendida o arrendada”.</p>
+
+<h3>¿Por qué una sola base de datos para dos microservicios?</h3>
+<p>Simplicidad del laboratorio y transacciones locales. Cada servicio accede solo a sus tablas (bajo acoplamiento). En producción se evaluaría <i>database-per-service</i> y comunicación por eventos.</p>
+
+<h3>¿Por qué exactamente 2 colas de Rabbit y 2 DLQ?</h3>
+<p>Es el requisito de la rúbrica: dos colas de trabajo (correos y PDF) con su DLQ. La tercera cola original se eliminó y la auditoría pasó a ser síncrona a la base, que además da consistencia inmediata.</p>
+
+<h3>¿Por qué <code>X-User</code> es confiable?</h3>
+<p>Porque la escribe API Gateway con acción <code>overwrite</code> después de validar el token. Cualquier valor enviado por el navegador se descarta. Se demostró enviando <code>X-User: administrador</code> a una ruta protegida: la respuesta fue 401.</p>
+
+<h3>¿Qué pasó con el error de CORS de los avisos?</h3>
+<p>La ruta <code>/api/cliente/avisos</code> no existía. API Gateway devolvía 404 <b>sin</b> cabeceras CORS y el navegador lo mostraba como error de CORS. Se aplicó un change set que creó las dos rutas y el GET pasó a 401 con CORS (y luego a 200 con token).</p>
+
+<h3>¿Qué encontraron al revisar los datos sensibles?</h3>
+<p>El catálogo público devolvía <code>creadoPorEmail</code> y <code>creadoPorOid</code> del staff. Se ocultaron con <code>@JsonIgnore</code> y se agregó un test de regresión. El frontend nunca usó esos campos, así que no hubo impacto funcional.</p>
+
+<h3>¿Por qué el catálogo devuelve imágenes en base64?</h3>
+<p>Es una decisión de simplicidad del laboratorio: la imagen se guarda como <code>data:image/...;base64</code> en la tabla. Funciona, pero infla la respuesta (el catálogo pesa cerca de 2 MB). La mejora sería guardar archivos y servir una URL, o usar object storage.</p>
+</section>
+
+<section class="section">
+<h1 id="s20">20. Chuleta de comandos y URLs</h1>
+<table>
+  <tr><th>Recurso</th><th>URL</th></tr>
+  <tr><td>Sitio</td><td><code>https://inmobiliariasduoc.duckdns.org</code></td></tr>
+  <tr><td>API</td><td><code>https://qe8w2nla3a.execute-api.us-east-1.amazonaws.com</code></td></tr>
+  <tr><td>RabbitMQ UI</td><td><code>http://54.88.89.184:15672</code> y <code>:15673</code></td></tr>
+  <tr><td>Kafka UI</td><td><code>http://54.88.89.184:8080</code></td></tr>
+  <tr><td>MailHog</td><td><code>http://54.88.89.184:8025</code></td></tr>
+</table>
+<div class="callout warn">
+  <b>Acceso a las UIs:</b> 15672, 15673, 8025 y 8080 solo desde “My IP”; 8081 y 8082 solo desde el CIDR de la VPC. Si cambia la IP pública, hay que actualizar la regla del Security Group. Nunca <code>0.0.0.0/0</code>.
+</div>
+
+<h2>Comandos de salud</h2>
+<pre><code># Contenedores
+sudo docker ps --format '{{.Names}}\t{{.Status}}'
+
+# Logs de un servicio
+sudo docker logs -f --tail 100 inmobiliaria-service
+sudo docker logs -f --tail 100 wishlist-service
+
+# Reiniciar un servicio
+sudo docker restart wishlist-service
+
+# Estado de los topics
+sudo docker exec inmobiliarias-kafka /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 --describe | grep -E 'propiedades|notificaciones'
+
+# Colas y consumidores
+sudo docker exec inmobiliarias-rabbitmq rabbitmqctl list_queues name messages consumers
+
+# Tablas del wishlist
+sudo docker exec inmobiliarias-db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "select count(*) from wishlist_favoritos;
+      select count(*) from wishlist_avisos;"</code></pre>
+
+<h2>Comandos de la demo (resumen)</h2>
+<pre><code># 1. Publico acotado
+curl -s -o /dev/null -w '%{http_code}\n' $API/api/propiedades
+curl -s -o /dev/null -w '%{http_code}\n' $API/api/auditoria
+
+# 2. Cabeceras falsas
+curl -s -o /dev/null -w '%{http_code}\n' -H 'X-User: administrador@x' \
+  -H 'X-User-Rol: ADMIN' $API/api/admin/estadisticas
+
+# 3. CORS
+curl -s -D - -o /dev/null -X OPTIONS \
+  -H 'Origin: https://inmobiliariasduoc.duckdns.org' \
+  -H 'Access-Control-Request-Method: GET' $API/api/propiedades | grep -i access-control
+
+# 4. Kafka
+sudo docker exec inmobiliarias-kafka /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 --describe --group wishlist-notifier-group
+
+# 5. Rabbit
+sudo docker exec inmobiliarias-rabbitmq rabbitmqctl list_queues name messages consumers
+
+# 6. Datos sensibles fuera
+curl -s $API/api/propiedades/3 | grep -c creadoPorEmail</code></pre>
+
+<h2>Notas de entorno</h2>
+<ul>
+  <li>En Windows, usar <code>curl.exe</code> para evitar el alias de PowerShell.</li>
+  <li>La llave SSH del backend es <code>llaves_backen_inmobiliarias.pem</code>; el usuario es <code>ec2-user</code>.</li>
+  <li>Maven local: <code>C:\Users\mjcr2\.m2\wrapper\dists\apache-maven-3.9.9\...\bin\mvn.cmd</code>.</li>
+  <li>Los tests del backend tardan ~3 minutos porque intentan conectar a Kafka local y agotan el timeout; no es un fallo.</li>
+</ul>
+</section>
+
+<section class="section">
+<h1 id="s21">21. Anexo: evidencia recolectada</h1>
+<p><b>Fecha:</b> 17 de noviembre de 2026. <b>Entorno:</b> API de producción y EC2 de backend.</p>
+
+<h2>21.1 Rutas públicas y privadas</h2>
+<table>
+  <tr><th>Métrica</th><th>Valor</th></tr>
+  <tr><td>Rutas declaradas en el stack</td><td>36</td></tr>
+  <tr><td>Rutas con <code>AuthorizationType: NONE</code></td><td>3</td></tr>
+  <tr><td>Escrituras anónimas</td><td>0</td></tr>
+  <tr><td>Peticiones sin token probadas</td><td>17</td></tr>
+  <tr><td>Resultado</td><td>3 × 200 (lectura), 14 × 401</td></tr>
+</table>
+
+<h2>21.2 Coherencia frontend / API Gateway</h2>
+<table>
+  <tr><th>Métrica</th><th>Valor</th></tr>
+  <tr><td>Combinaciones método+ruta usadas por el frontend</td><td>26</td></tr>
+  <tr><td>Existen en el stack</td><td>26</td></tr>
+  <tr><td>Faltantes</td><td>0</td></tr>
+  <tr><td>Rutas del stack no usadas por el frontend</td><td>10 (administración y proxies; no es un problema)</td></tr>
+</table>
+
+<h2>21.3 Kafka</h2>
+<table>
+  <tr><th>Topic</th><th>Mensajes</th><th>DLQ</th></tr>
+  <tr><td><code>propiedades-nuevas</code></td><td>21</td><td>0</td></tr>
+  <tr><td><code>propiedades-eliminadas</code></td><td>2</td><td>0</td></tr>
+  <tr><td><code>notificaciones-sistema</code></td><td>11</td><td>0</td></tr>
+</table>
+<table>
+  <tr><th>Grupo</th><th>Offsets</th><th>Lag</th></tr>
+  <tr><td><code>wishlist-notifier-group</code></td><td>20 / 1 / 0</td><td>0</td></tr>
+  <tr><td><code>wishlist-bajas-group</code></td><td>1 / 0 / 1</td><td>0</td></tr>
+  <tr><td><code>notificaciones-dispatch-group</code></td><td>0 / 4 / 5 / 2</td><td>0</td></tr>
+</table>
+<p><b>Efecto en base:</b> <code>wishlist_novedades</code> 23 filas (última 10:12), <code>wishlist_novedades_resumen</code> 3 filas, 3 correos enviados, <code>wishlist_favoritos</code> 5 filas.</p>
+
+<h2>21.4 RabbitMQ</h2>
+<table>
+  <tr><th>Cola</th><th>Mensajes</th><th>Consumidores</th></tr>
+  <tr><td><code>cola.correos.notificaciones</code></td><td>0</td><td>1</td></tr>
+  <tr><td><code>cola.correos.notificaciones.dlq</code></td><td>0</td><td>0</td></tr>
+  <tr><td><code>cola.pdf.procesamiento</code></td><td>0</td><td>1</td></tr>
+  <tr><td><code>cola.pdf.procesamiento.dlq</code></td><td>0</td><td>0</td></tr>
+</table>
+
+<h2>21.5 Identidad</h2>
+<table>
+  <tr><th>Prueba</th><th>Resultado</th></tr>
+  <tr><td>Access token Cognito → <code>/api/cliente/perfil</code></td><td>200</td></tr>
+  <tr><td>Access token Cognito → <code>/api/admin/estadisticas</code></td><td>401</td></tr>
+  <tr><td>Access token Cognito → <code>/api/me</code></td><td>401</td></tr>
+  <tr><td>Access token Cognito → <code>/api/wishlist/favoritos</code></td><td>401</td></tr>
+  <tr><td>ID token Cognito → <code>/api/cliente/perfil</code></td><td>403</td></tr>
+  <tr><td>Cabeceras <code>X-User*</code> falsas → rutas protegidas</td><td>401</td></tr>
+  <tr><td>Backend directo: matriz de roles</td><td>200/403/403/403/404/403/403/200/403/200</td></tr>
+</table>
+
+<h2>21.6 Cambios de esta iteración</h2>
+<table>
+  <tr><th>Archivo</th><th>Cambio</th></tr>
+  <tr><td><code>backend/inmobiliaria-service/.../model/Propiedad.java</code></td><td><code>@JsonIgnore</code> en <code>creadoPorEmail</code> y <code>creadoPorOid</code></td></tr>
+  <tr><td><code>backend/inmobiliaria-service/.../controller/PropiedadControllerIT.java</code></td><td>Test <code>elCatalogoPublicoNoExponeLaIdentidadDelStaff</code></td></tr>
+  <tr><td><code>docs/GUIA-ESTUDIO.html</code></td><td>Este documento (fuente del PDF)</td></tr>
+  <tr><td><code>docs/GUIA-ESTUDIO.pdf</code></td><td>PDF generado</td></tr>
+</table>
+<p><b>Tests:</b> <code>PropiedadControllerIT</code> → 7 ejecutados, 0 fallos, 0 errores. Build: <code>SUCCESS</code>.</p>
+
+<h2>Checklist final antes de entregar</h2>
+<table>
+  <tr><th>Hecho</th><th>Ítem</th></tr>
+  <tr><td>☑</td><td>3 rutas públicas, todas de lectura</td></tr>
+  <tr><td>☑</td><td>14 escrituras y rutas internas devuelven 401 sin token</td></tr>
+  <tr><td>☑</td><td>Cabeceras de identidad falsas rechazadas</td></tr>
+  <tr><td>☑</td><td>Matriz de roles probada contra el backend</td></tr>
+  <tr><td>☑</td><td>26/26 rutas del frontend existen en el gateway</td></tr>
+  <tr><td>☑</td><td>Kafka con offsets, lag 0 y efecto en base</td></tr>
+  <tr><td>☑</td><td>4 colas Rabbit con consumidores</td></tr>
+  <tr><td>☑</td><td>Cognito y Entra aislados</td></tr>
+  <tr><td>☑</td><td>Datos internos fuera del catálogo público</td></tr>
+  <tr><td>☑</td><td>Test de regresión y build en verde</td></tr>
+</table>
+
+<p class="small center">InmobiliariasCloud · Guía técnica y guion de defensa · 17-11-2026</p>
+</section>
+
+</body>
+</html>
