@@ -1,5 +1,6 @@
 package cl.inmobiliarias.service.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
@@ -24,9 +25,15 @@ public class Propiedad {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Identidad interna de quien publico la propiedad (correo corporativo y
+    // objectId de Entra ID). No debe salir en el catalogo publico: GET
+    // /api/propiedades y GET /api/propiedades/{id} son rutas sin autenticar.
+    // Si se necesitan para un informe, se leen directo de la entidad.
+    @JsonIgnore
     @Column(name = "creado_por_email")
     private String creadoPorEmail;
 
+    @JsonIgnore
     @Column(name = "creado_por_oid")
     private String creadoPorOid;
 

@@ -120,4 +120,23 @@ class PropiedadControllerIT {
                         .content(body))
                 .andExpect(status().isBadRequest());
     }
+
+    /**
+     * Las dos rutas del catalogo son publicas (AuthorizationType NONE en el API
+     * Gateway), asi que no pueden devolver la identidad interna de quien
+     * publico: correo corporativo ni objectId de Entra ID.
+     */
+    @Test
+    void elCatalogoPublicoNoExponeLaIdentidadDelStaff() throws Exception {
+        mockMvc.perform(get("/api/propiedades"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].creadoPorEmail").doesNotExist())
+                .andExpect(jsonPath("$[0].creadoPorOid").doesNotExist())
+                .andExpect(jsonPath("$[0].titulo").isNotEmpty());
+
+        mockMvc.perform(get("/api/propiedades/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.creadoPorEmail").doesNotExist())
+                .andExpect(jsonPath("$.creadoPorOid").doesNotExist());
+    }
 }
